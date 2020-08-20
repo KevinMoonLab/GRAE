@@ -10,7 +10,8 @@ base_name = dict(GRAE='GRAE (',
                  GRAE_TSNE='GRAE t-SNE (',
                  GRAE_UMAP='GRAE UMAP (',
                  TopoAE='TAE (',
-                 SGRAE='Siamese GRAE (')
+                 SGRAE='Siamese GRAE (',
+                 SoftGRAE='Soft GRAE (')
 
 ds_name = dict(SwissRoll='Swiss Roll',
                Faces='Faces',

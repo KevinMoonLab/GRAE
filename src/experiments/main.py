@@ -23,8 +23,8 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # Names should be the same as the class names defined in the models and datasets modules. GRAE variants can be suffixed
 # (ex: GRAE_10) to choose the lambda value
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['AE', 'GRAE_10', 'GRAE_100']
-DATASETS = ['RotatedDigits', 'Faces']
+MODELS = ['AE', 'GRAE_100', 'SoftGRAE_100']
+DATASETS = ['RotatedDigits']
 
 RUNS = 1
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,

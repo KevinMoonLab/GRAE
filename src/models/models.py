@@ -19,7 +19,7 @@ SEED = 42
 BATCH_SIZE = 200
 LR = .0001
 WEIGHT_DECAY = 1
-EPOCHS = 5
+EPOCHS = 1000
 HIDDEN_DIMS = (800, 400, 200)  # Default hidden MLP dimensions
 
 
@@ -258,3 +258,11 @@ class SGRAE(AE):
         # Soft GRAE (turn off geometric loss after drop_lam epochs)
         if self.drop_lam is not None and epoch == self.drop_lam - 1:
             self.lam = 0
+
+
+class SoftGRAE(GRAE):
+    """GRAE class where the geometric regularization is dropped after 50 % of epochs."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.drop_lam = self.epochs // 2
