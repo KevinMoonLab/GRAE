@@ -4,13 +4,17 @@ import urllib
 
 import numpy as np
 from torchvision import transforms
+import torch
 import torchvision.datasets as torch_datasets
 from scipy.io import loadmat
 from PIL import Image
 from scipy import ndimage
 import requests
+from skimage.transform import resize
 
 from src.data.base import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
+
+ALLOW_CONV = False
 
 
 class Faces(BaseDataset):
@@ -37,6 +41,10 @@ class Faces(BaseDataset):
         # Keep only one latent in the targets attribute for compatibility with
         # other datasets
         self.targets = self.targets[:, 0]
+
+        # Reshape dataset in image format
+        if ALLOW_CONV:
+            self.data = self.data.view(-1, 1, 64, 64)
 
     def _download(self):
         print('Downloading Faces dataset...')
@@ -65,6 +73,29 @@ class Teapot(BaseDataset):
         super().__init__(x, y, split, split_ratio, seed)
 
         self.y = y
+
+        # Reshape dataset in image format
+        if ALLOW_CONV:
+            def vector_2_rgbimage(vector, h, w, c):
+                # Function from https://github.com/calebralphs/maximum-variance-unfolding/blob/master/MVU_Data_Exporation.ipynb
+                image_rgb = vector.reshape(c, -1)
+                image_rgb = image_rgb.T.reshape(w, h, c)
+                image_rgb = np.rot90(image_rgb, 3)
+
+                # Resize for compatibility with Conv architecture
+                image_rgb = resize(image_rgb, (76, 128))
+                return image_rgb[np.newaxis, :]
+
+            new_data = [vector_2_rgbimage(vec.numpy(), 76, 101, 3) for vec in self.data]
+            self.data = torch.from_numpy(np.concatenate(new_data))
+
+            # Test
+            # import matplotlib.pyplot as plt
+            # plt.imshow(self.data[0])
+            # plt.show()
+
+            # Swap dimensions for pytorch conventions
+            self.data = self.data.permute(0, 3, 1, 2)
 
     def _download(self):
         print('Downloading Teapot dataset')
@@ -112,14 +143,14 @@ class Tracking(BaseDataset):
                     bg_copy = bg_copy.convert('RGB')
 
                     # Average for black and white
-                    img = np.mean(np.array(bg_copy), axis=2)
-                    # img = np.array(bg_copy)
+                    # img = np.mean(np.array(bg_copy), axis=2)
+                    img = np.array(bg_copy)
 
                     # Show samples images
                     # if (i == 3 and j == 3) or (i == 20 and j == 20) or (i == 40 and j == 40):
                     #     Image.fromarray(img).show()
 
-                    x.append(img.flatten())
+                    x.append(img[np.newaxis, :])
                     y_1.append(i)
                     y_2.append(j)
 
@@ -127,7 +158,7 @@ class Tracking(BaseDataset):
 
                 i += stride
 
-            x = np.vstack(x) / 255
+            x = np.concatenate(x) / 255
             y_1 = np.array(y_1)
             y_2 = np.array(y_2)
 
@@ -139,6 +170,11 @@ class Tracking(BaseDataset):
         y = np.load(os.path.join(self.root, 'y.npy'))
 
         super().__init__(x, y, split, split_ratio, seed)
+
+        if not ALLOW_CONV:
+            self.data = self.data.view(len(self), -1)
+        else:
+            self.data = self.data.permute(0, 3, 1, 2)
 
         # Save y_1 and y_2 for coloring
         self.y_1 = self.targets[:, 0].numpy()
@@ -215,3 +251,11 @@ class RotatedDigits(Rotated):
                  n_images=3, n_rotations=360):
         super().__init__(torch_datasets.MNIST, split, split_ratio, seed,
                          n_images, n_rotations)
+
+        if ALLOW_CONV:
+            self.data = self.data.view(-1, 1, 28, 28)
+
+            # Test
+            # import matplotlib.pyplot as plt
+            # plt.imshow(self.data[800][0], cmap='gray')
+            # plt.show()

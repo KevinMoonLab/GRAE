@@ -32,11 +32,9 @@ class NumpyDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def numpy(self, idx=None):
-        if idx == None:
-            return self.data.numpy()
-        else:
-            return self.data.numpy()[idx]
+    def numpy(self):
+        n = len(self)
+        return self.data.numpy().reshape((n, -1))
 
 
 class BaseDataset(Dataset):
@@ -58,12 +56,9 @@ class BaseDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def numpy(self, idx=None):
-        # Convenience method to fetch dataset as ndarrays.
-        if idx == None:
-            return self.data.numpy(), self.targets.numpy()
-        else:
-            return self.data.numpy()[idx], self.targets.numpy()[idx]
+    def numpy(self):
+        n = len(self)
+        return self.data.numpy().reshape((n, -1)), self.targets.numpy()
 
     def get_split(self, x, y, split, split_ratio, seed):
         if split == 'none':

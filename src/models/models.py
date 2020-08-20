@@ -11,16 +11,17 @@ from sklearn.metrics import mean_squared_error
 
 from src.data.base import device
 from src.data.base import NumpyDataset
-from src.models.torch_modules import AutoencoderModule
-
+from src.models.torch_modules import AutoencoderModule, ConvAutoencoderModule
 
 # Hyperparameters defaults
 SEED = 42
-BATCH_SIZE = 200
+BATCH_SIZE = 128
 LR = .0001
 WEIGHT_DECAY = 1
 EPOCHS = 1000
 HIDDEN_DIMS = (800, 400, 200)  # Default hidden MLP dimensions
+CONV_DIMS = [64, 128]
+CONV_FC_DIMS = [400, 200]
 
 
 class BaseModel:
@@ -87,11 +88,12 @@ class AE(BaseModel):
     """Autoencoder model."""
 
     def __init__(self, *, lr=LR, epochs=EPOCHS, batch_size=BATCH_SIZE, weight_decay=WEIGHT_DECAY,
-                 random_state=SEED, n_components=2, hidden_dims=HIDDEN_DIMS):
+                 random_state=SEED, n_components=2, hidden_dims=HIDDEN_DIMS,
+                 conv_dims=CONV_DIMS, conv_fc_dims=CONV_FC_DIMS):
         self.random_state = random_state
         self.n_components = n_components
         self.hidden_dims = hidden_dims  # List of dimensions of the hidden layers in the encoder (decoder will use
-                                        # the inverse architecture
+        # the inverse architecture
         self.fitted = False
         self.torch_module = None
         self.optimizer = None
@@ -101,6 +103,8 @@ class AE(BaseModel):
         self.batch_size = batch_size
         self.weight_decay = weight_decay
         self.criterion = nn.MSELoss(reduction='sum')
+        self.conv_dims = conv_dims
+        self.conv_fc_dims = conv_fc_dims
 
     def fit(self, X):
         # Reproducibility
@@ -112,10 +116,23 @@ class AE(BaseModel):
             raise Exception('Cannot fit a second time.')
 
         # Infer input size from data. Initialize torch module and optimizer
-        input_size = X[0][0].shape[0]
-        self.torch_module = AutoencoderModule(input_dim=input_size,
-                                              hidden_dims=self.hidden_dims,
-                                              z_dim=self.n_components)
+        if len(X[0][0].shape) == 1:
+            # Linear case
+            input_size = X[0][0].shape[0]
+            self.torch_module = AutoencoderModule(input_dim=input_size,
+                                                  hidden_dims=self.hidden_dims,
+                                                  z_dim=self.n_components)
+        elif len(X[0][0].shape) == 3:
+            in_channel, height, width = X[0][0].shape
+            #  Convolutionnal case
+            self.torch_module = ConvAutoencoderModule(H=height,
+                                                      W=width,
+                                                      input_channel=in_channel,
+                                                      channel_list=self.conv_dims,
+                                                      hidden_dims=self.conv_fc_dims,
+                                                      z_dim=self.n_components)
+        else:
+            raise Exception(f'Invalid channel number. X has {len(X[0][0].shape)}')
 
         self.optimizer = torch.optim.Adam(self.torch_module.parameters(),
                                           lr=self.lr,
@@ -174,9 +191,10 @@ class AE(BaseModel):
         return self.inverse_transform(self.transform(X))
 
     def score_reconstruction(self, X):
+        n = len(X)
         x_hat = self.reconstruct(X)
         x, _ = X.numpy()
-        return mean_squared_error(x, x_hat)
+        return mean_squared_error(x.reshape((n, -1)), x_hat.reshape((n, -1)))
 
 
 class GRAE(AE):
@@ -240,7 +258,7 @@ class SGRAE(AE):
             half = x.shape[0] // 2
 
             batch_1 = idx[:half]
-            batch_2 = idx[half:2*half]
+            batch_2 = idx[half:2 * half]
 
             d_z = torch.norm(z[:half] - z[half:], p=2, dim=1)
 
