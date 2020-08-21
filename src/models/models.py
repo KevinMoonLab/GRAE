@@ -44,7 +44,7 @@ class BaseModel:
         if z.shape[1] != 2:
             raise Exception('Can only plot 2D embeddings.')
 
-        plt.scatter(*z.T, c=y, cmap='jet')
+        plt.scatter(*z.T, c=y, cmap='Spectral', s=.01)
         plt.show()
 
         return z

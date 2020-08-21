@@ -5,6 +5,7 @@ import scprep
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
+from scipy.io import loadmat
 
 from src.data.base import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
 
@@ -102,3 +103,22 @@ class Embryoid(BaseDataset):
     def get_source(self):
         # Only 1D ground truth
         return self.targets.numpy(), None
+
+
+class IPSC(BaseDataset):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED, subsample=100000):
+        file_path = os.path.realpath(os.path.join(BASEPATH, 'Ipsc', 'ipscData.mat'))
+        if not os.path.exists(file_path):
+            raise Exception(f'{file_path} should be added manually before running experiments.')
+
+        data = loadmat(file_path)
+        x = data['data']
+        y = data['data_time']
+
+        if subsample is not None:
+            np.random.seed(seed)
+            mask = np.random.choice(x.shape[0], size=subsample)
+            x = x[mask]
+            y = y[mask]
+
+        super().__init__(x, y, split, split_ratio, seed)
