@@ -11,6 +11,7 @@ from PIL import Image
 from scipy import ndimage
 import requests
 from skimage.transform import resize
+from skimage.util import random_noise
 
 from src.data.base import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
 
@@ -20,7 +21,7 @@ ALLOW_CONV = True
 class Faces(BaseDataset):
     def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
         self.url = 'http://stt3795.guywolf.org/Devoirs/D02/face_data.mat'
-        self.root = os.path.join(BASEPATH, 'faces')
+        self.root = os.path.join(BASEPATH, 'Faces')
 
         if not os.path.exists(self.root):
             os.mkdir(self.root)
@@ -58,7 +59,7 @@ class Teapot(BaseDataset):
     def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
         self.url = 'https://github.com/calebralphs/maximum-variance-unfolding/blob/master/Teapots.mat?raw=true'
 
-        self.root = os.path.join(BASEPATH, 'teapot_')
+        self.root = os.path.join(BASEPATH, 'Teapot')
 
         if not os.path.exists(self.root):
             os.mkdir(self.root)
@@ -138,6 +139,13 @@ class Tracking(BaseDataset):
                 j = 0
                 while j < 64 - 16:
                     bg_copy = bg.copy()
+
+                    # Add noise using skimage
+                    bg_copy = np.array(bg_copy)
+                    bg_copy = random_noise(bg_copy, mode='gaussian',
+                                           seed=((43 * i + 1) * (101 * j + 1)) % 74501, var=0.05)
+                    bg_copy = Image.fromarray((bg_copy * 255).astype(np.uint8))
+
                     bg_copy.paste(sprite, (i, j), sprite)
 
                     bg_copy = bg_copy.convert('RGB')
@@ -147,8 +155,8 @@ class Tracking(BaseDataset):
                     img = np.array(bg_copy)
 
                     # Show samples images
-                    # if (i == 3 and j == 3) or (i == 20 and j == 20) or (i == 40 and j == 40):
-                    #     Image.fromarray(img).show()
+                    if (i == 3 and j == 3) or (i == 20 and j == 20) or (i == 40 and j == 40):
+                        Image.fromarray(img).show()
 
                     x.append(img[np.newaxis, :])
                     y_1.append(i)

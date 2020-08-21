@@ -7,7 +7,7 @@ PHATE_dict = dict(  # Dataset specific arguments
     RotatedDigits=dict(knn=5, t=25),
     SwissRoll=dict(knn=20, t=100),
     Embryoid=dict(knn=5, t=25),
-    Tracking=dict(knn=10, t=100),
+    Tracking=dict(knn=15, t=100),
     Teapot=dict(knn=10, t=100)
 )
 
