@@ -43,7 +43,11 @@ class DownConvBlock(nn.Module):
         self.max = nn.MaxPool2d(2)
 
     def forward(self, x):
-        return self.max(self.conv(x))
+        x = self.conv(x)
+        x = F.relu(x)
+        x = self.max(x)
+
+        return x
 
 
 class UpConvBlock(nn.Module):
@@ -53,7 +57,23 @@ class UpConvBlock(nn.Module):
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x):
-        return self.conv(self.up(x))
+        x = self.up(x)
+        x = self.conv(x)
+        x = F.relu(x)
+
+        return x
+
+class LastConv(UpConvBlock):
+    """Last convolution with no activation and kernel_size = 1."""
+    def __init__(self, in_channels, out_channels):
+        super().__init__(in_channels, in_channels)
+        self.conv_2 = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        x = super().forward(x)
+        x = self.conv_2(x)
+
+        return x
 
 class ConvEncoder(nn.Module):
     def __init__(self, H, W, input_channel, channel_list, hidden_dims, z_dim):
@@ -97,11 +117,13 @@ class ConvDecoder(nn.Module):
 
         self.linear = MLP(mlp_dim)
 
-        channels = channel_list + [input_channel]
+        channels = channel_list
         modules = list()
 
         for i in range(1, len(channels)):
             modules.append(UpConvBlock(in_channels=channels[i - 1], out_channels=channels[i]))
+
+        modules.append(LastConv(in_channels=channels[-1], out_channels=input_channel))
 
         self.conv = nn.Sequential(*modules)
         self.first_channel = channel_list[0]

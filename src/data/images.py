@@ -14,7 +14,7 @@ from skimage.transform import resize
 
 from src.data.base import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
 
-ALLOW_CONV = False
+ALLOW_CONV = True
 
 
 class Faces(BaseDataset):

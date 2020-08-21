@@ -1,14 +1,14 @@
 """Model arguments for the main.py experiments."""
 # Some arg dicts that will be reused by various models
 # Default PHATE args
-PHATE_DEFAULTS = dict(verbose=0, n_jobs=-1, t='auto')
+PHATE_DEFAULTS = dict(verbose=0, n_jobs=-1)
 PHATE_dict = dict(  # Dataset specific arguments
-    Faces=dict(knn=5),
-    RotatedDigits=dict(knn=5),
-    SwissRoll=dict(knn=20),
-    Embryoid=dict(knn=5),
-    Tracking=dict(knn=5),
-    Teapot=dict(knn=5)
+    Faces=dict(knn=5, t=25),
+    RotatedDigits=dict(knn=5, t=25),
+    SwissRoll=dict(knn=20, t=100),
+    Embryoid=dict(knn=5, t=25),
+    Tracking=dict(knn=10, t=100),
+    Teapot=dict(knn=10, t=100)
 )
 
 

@@ -24,7 +24,7 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # (ex: GRAE_10) to choose the lambda value
 # Specific model arguments can be changed in the model_params.py module
 MODELS = ['AE', 'GRAE_100', 'SoftGRAE_100']
-DATASETS = ['Teapot']
+DATASETS = ['Teapot', 'Tracking', 'RotatedDigits']
 
 RUNS = 1
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
