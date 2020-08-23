@@ -23,10 +23,10 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # Names should be the same as the class names defined in the models and datasets modules. GRAE variants can be suffixed
 # (ex: GRAE_10) to choose the lambda value
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['AE', 'GRAE_100', 'SoftGRAE_100']
-DATASETS = ['Teapot', 'Tracking', 'RotatedDigits']
+MODELS = ['GRAE_100', 'AE', 'SoftGRAE_100']
+DATASETS = ['IPSC']
 
-RUNS = 1
+RUNS = 3
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
                  9369, 28478, 4624, 29114, 41915, 6467, 4216, 16025, 34823,
                  29854, 23853]  # 20 random states. Add more if needed.
@@ -69,9 +69,6 @@ for model in MODELS:
             data_train = getattr(src.data, dataset)(split='train', seed=RANDOM_STATES[j])
             data_test = getattr(src.data, dataset)(split='test', seed=RANDOM_STATES[j])
 
-            data_train_np, y_train = data_train.numpy()
-            data_test_np, y_test = data_test.numpy()
-
             # Parse model name. Underscore allows to pass a lambda argument to GRAE variants (ex : GRAE_10)
             arg_list = model.split('_')
             model_name = arg_list[0]
@@ -103,12 +100,9 @@ for model in MODELS:
 
             transform_time = transform_stop - transform_start
 
-            inv_train = m.inverse_transform(z_train)
-            inv_test = m.inverse_transform(z_test)
-
             # Compute reconstruction right away to avoid needing to save all reconstructed samples
-            rec_train = mean_squared_error(data_train_np, inv_train)
-            rec_test = mean_squared_error(data_test_np, inv_test)
+            rec_train = m.score_reconstruction(data_train)
+            rec_test = m.score_reconstruction(data_test)
 
             # Save embeddings
             obj = dict(z_train=z_train, z_test=z_test,
@@ -119,8 +113,8 @@ for model in MODELS:
             save_dict(obj, os.path.join(target, f'run_{j + 1}.pkl'))
 
 # Score embeddings, plot embeddings and generate latex tables
-score(ID, MODELS, DATASETS)
 grid_plot(ID, MODELS, DATASETS, 1)
+score(ID, MODELS, DATASETS)
 metrics_train = show_metrics(ID, 'train', MODELS, DATASETS)
 metrics_test = show_metrics(ID, 'test', MODELS, DATASETS)
 to_latex(ID, 'train', MODELS, DATASETS)
