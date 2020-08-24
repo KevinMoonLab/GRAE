@@ -102,9 +102,6 @@ class Teapot(BaseDataset):
         print('Downloading Teapot dataset')
         urllib.request.urlretrieve(self.url, os.path.join(self.root, 'teapot.mat'))
 
-    def get_source(self):
-        return self.y
-
 
 class Tracking(BaseDataset):
     def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
