@@ -144,6 +144,7 @@ class AE(BaseModel):
         self.loader = self.get_loader(X)
 
         for epoch in range(self.epochs):
+            print(f'            Epoch {epoch}...')
             for batch in self.loader:
                 self.optimizer.zero_grad()
                 self.train_body(batch)

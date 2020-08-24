@@ -106,7 +106,7 @@ class Embryoid(BaseDataset):
 
 
 class IPSC(BaseDataset):
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED, subsample=100):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED, subsample=10000):
         file_path = os.path.realpath(os.path.join(BASEPATH, 'Ipsc', 'ipscData.mat'))
         if not os.path.exists(file_path):
             raise Exception(f'{file_path} should be added manually before running experiments.')

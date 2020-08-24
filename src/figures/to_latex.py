@@ -57,17 +57,28 @@ def to_latex(id, split, model_list, dataset_list, digits=3):
     df['model'] = pd.Categorical(df['model'], model_list)
     df['dataset'] = pd.Categorical(df['dataset'], dataset_list)
 
-    # Prettify names
-    df['model'] = df['model'].map(get_model_name)
-    df['dataset'] = df['dataset'].map(get_dataset_name)
-
-    # Prettify column names
-    df = df.rename(columns=get_metrics_name)
 
     # Mean or sd
-    mean = df.groupby(['Dataset', 'Model']).mean()
+    mean = df.groupby(['dataset', 'model']).mean()
     mean = mean.reset_index(level=[0, 1])
+
+    if 'AE' in model_list:
+        # Add relative comparison to AE reconstruction
+        mean['rel_reconstruction'] = mean['reconstruction']
+
+        for ds in dataset_list:
+            quotient = mean[(mean['dataset'] == ds) & (mean['model'] == 'AE')]['reconstruction'][0]
+            mean['rel_reconstruction'][mean['dataset'] == ds] /= quotient
+
+        mean['rel_reconstruction'] -= 1
+        mean['rel_reconstruction'] *= 100
+
     mean = mean.round(digits)
+
+    # Prettify column names
+    mean['model'] = mean['model'].map(get_model_name)
+    mean['dataset'] = mean['dataset'].map(get_dataset_name)
+    mean = mean.rename(columns=get_metrics_name)
 
     # Build rank dataframe
     # 2 means bold. 1 means bold + underline.
@@ -79,14 +90,22 @@ def to_latex(id, split, model_list, dataset_list, digits=3):
         # Higher is better
         ascending = False
 
-        if m == 'Reconstruction' or m.split(' ')[0] == 'MRRE':
+        if m == 'MSE' or m == 'Rel. MSE' or m.split(' ')[0] == 'MRRE':
             # Lower is better
             ascending = True
 
         rank = mean.groupby(level=[0])[m].rank(method='min', ascending=ascending)
         df_rank[m] = rank
 
+    # Add percentage to relative reconstruction
+    if 'AE' in model_list:
+        mean['Rel. MSE'].round(2)
+
     mean = mean.applymap(lambda x: ("{:." + str(digits) + "f}").format(x))
+
+    # Add percentage to relative reconstruction
+    if 'AE' in model_list:
+        mean['Rel. MSE'] += ' \%'
 
     for i in range(mean.shape[0]):
         for j in range(mean.shape[1]):
