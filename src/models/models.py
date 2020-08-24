@@ -20,7 +20,7 @@ LR = .0001
 WEIGHT_DECAY = 1
 EPOCHS = 10000
 HIDDEN_DIMS = (800, 400, 200)  # Default hidden MLP dimensions
-CONV_DIMS = [64, 128]
+CONV_DIMS = [32, 64]
 CONV_FC_DIMS = [400, 200]
 
 
