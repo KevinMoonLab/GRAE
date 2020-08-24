@@ -38,20 +38,21 @@ def to_latex(id, split, model_list, dataset_list, digits=3):
 
     df = df.drop(columns=['split', 'run'])
 
-    # Keep only test data
-    for base in ('pearson', 'spearman', 'mutual_information'):
-        df[f'{base}'] = (df[f'{base}_source_1'] + df[f'{base}_source_2']) / 2
-        df[f'{base}_ICA'] = (df[f'{base}_ICA_source_1'] + df[f'{base}_ICA_source_2']) / 2
-        # df[f'{base}_slice'] = (df[f'{base}_slice_source_1'] + df[f'{base}_slice_source_2']) / 2
+    # for base in ('pearson', 'spearman', 'mutual_information'):
+    #     df[f'{base}'] = (df[f'{base}_source_1'] + df[f'{base}_source_2']) / 2
+    #     df[f'{base}_ICA'] = (df[f'{base}_ICA_source_1'] + df[f'{base}_ICA_source_2']) / 2
+    #     # df[f'{base}_slice'] = (df[f'{base}_slice_source_1'] + df[f'{base}_slice_source_2']) / 2
 
     # Keep only relevant columns
-    df = df[['dataset', 'model', 'dist_corr',
-             'pearson',
-             'pearson_ICA',
-             'spearman',
-             'spearman_ICA',
-             'reconstruction'
-             ]]
+    # df = df[['dataset', 'model', 'dist_corr',
+    #          'pearson',
+    #          'pearson_ICA',
+    #          'spearman',
+    #          'spearman_ICA',
+    #          'reconstruction'
+    #          ]]
+
+    df = df[['dataset', 'model', 'R2', 'reconstruction']]
 
     # Provide order for models and datasets if needed
     df['model'] = pd.Categorical(df['model'], model_list)
