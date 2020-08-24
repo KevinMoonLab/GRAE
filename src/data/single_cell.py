@@ -106,7 +106,7 @@ class Embryoid(BaseDataset):
 
 
 class IPSC(BaseDataset):
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED, subsample=100000):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED, subsample=100):
         file_path = os.path.realpath(os.path.join(BASEPATH, 'Ipsc', 'ipscData.mat'))
         if not os.path.exists(file_path):
             raise Exception(f'{file_path} should be added manually before running experiments.')
@@ -121,4 +121,10 @@ class IPSC(BaseDataset):
             x = x[mask]
             y = y[mask]
 
+        y = y.flatten()
+
         super().__init__(x, y, split, split_ratio, seed)
+
+    def get_source(self):
+        # Only 1D ground truth
+        return self.targets.numpy(), None

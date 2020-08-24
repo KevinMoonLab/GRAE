@@ -18,6 +18,7 @@ ds_name = dict(SwissRoll='Swiss Roll',
                RotatedDigits='Rotated Digits',
                Teapot='Teapot',
                Embryoid='EB Differentiation',
+               IPSC='IPSC',
                Tracking='Object Tracking')
 
 metrics_name = dict(dataset='Dataset', model='Model',

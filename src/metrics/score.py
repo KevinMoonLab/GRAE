@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 import src.data
-from src.metrics import dis_metrics
+from src.metrics.dis_metrics import dis_metrics, dis_metrics_1D
 from src.figures.utils import load_dict
 
 
@@ -75,21 +75,18 @@ def refine_df(df, df_metrics):
     return mean
 
 
-# Datasets on which disentanglement metrics can be computed
-DATASETS_DIS = ['SwissRoll', 'Faces', 'Embryoid', 'Tracking']
-
 # Define required metrics
 # 2D Disentanglement metrics
 DIS_METRICS = ['dist_corr',
                'pearson_source_1', 'pearson_source_2',
                'pearson_ICA_source_1', 'pearson_ICA_source_2',
-               'pearson_slice_source_1', 'pearson_slice_source_2',
+               # 'pearson_slice_source_1', 'pearson_slice_source_2',
                'spearman_source_1', 'spearman_source_2',
                'spearman_ICA_source_1', 'spearman_ICA_source_2',
-               'spearman_slice_source_1', 'spearman_slice_source_2',
+               # 'spearman_slice_source_1', 'spearman_slice_source_2',
                'mutual_information_source_1', 'mutual_information_source_2',
                'mutual_information_ICA_source_1', 'mutual_information_ICA_source_2',
-               'mutual_information_slice_source_1', 'mutual_information_slice_source_2'
+               # 'mutual_information_slice_source_1', 'mutual_information_slice_source_2'
 ]
 
 
@@ -130,13 +127,16 @@ def score(id, model_list, dataset_list):
                 X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
                 z = data[f'z_{split}']
 
-                if dataset in DATASETS_DIS:
-                    y_1, y_2 = X.get_source()  # Fetch ground truth
+                y_1, y_2 = X.get_source()  # Fetch ground truth
 
+                if y_1 is not None and y_2 is not None:
                     # Compute metrics if dataset has 2D Ground truth
                     metrics = dis_metrics(y_1, y_2, *z.T)
+                elif y_1 is not None and y_2 is None:
+                    # Compute metrics if dataset has 1D Ground truth
+                    metrics = dis_metrics_1D(y_1, *z.T)
                 else:
-                    # Dummy dict
+                    # Dummy dict if no ground truth
                     metrics = dict(zip(DIS_METRICS, [None] * len(DIS_METRICS)))
 
                 rec_key = f'rec_{split}'

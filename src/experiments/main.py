@@ -23,10 +23,12 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # Names should be the same as the class names defined in the models and datasets modules. GRAE variants can be suffixed
 # (ex: GRAE_10) to choose the lambda value
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['GRAE_100', 'AE', 'SoftGRAE_100']
+MODELS = ['AE', 'SoftGRAE_100']
 DATASETS = ['IPSC']
 
-RUNS = 3
+EPOCHS = 2
+
+RUNS = 1
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
                  9369, 28478, 4624, 29114, 41915, 6467, 4216, 16025, 34823,
                  29854, 23853]  # 20 random states. Add more if needed.
@@ -82,7 +84,7 @@ for model in MODELS:
                 lam = int(arg_list[1])
                 params.update(dict(lam=lam))
 
-            m = getattr(src.models, model_name)(random_state=RANDOM_STATES[j], **params)
+            m = getattr(src.models, model_name)(epochs=EPOCHS, random_state=RANDOM_STATES[j], **params)
 
             # Benchmark fit time
             fit_start = time.time()

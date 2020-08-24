@@ -74,3 +74,7 @@ class BaseDataset(Dataset):
         else:
             return torch.from_numpy(x[test_idx]), torch.from_numpy(y[test_idx])
 
+    def get_source(self):
+        # Override this with 1D or 2D source signals (ground truths)
+        return None, None
+

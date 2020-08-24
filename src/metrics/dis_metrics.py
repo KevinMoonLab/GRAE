@@ -109,8 +109,9 @@ def dis_metrics(source_1, source_2, z_1, z_2):
 
         corr = optimal_corr(source_1, source_2, z_1, z_2, f, name, **args)
         corr_ICA = optimal_corr_ICA(source_1, source_2, z_1, z_2, f, name, **args)
-        corr_slice = slice_correlator(source_1, source_2, z_1, z_2, f, name, **args)
-        metrics.update({**corr, **corr_ICA, **corr_slice})
+        metrics.update({**corr, **corr_ICA})
+        # corr_slice = slice_correlator(source_1, source_2, z_1, z_2, f, name, **args)
+        # metrics.update({**corr, **corr_ICA, **corr_slice})
 
     # Mantel
     source = np.vstack((source_1, source_2)).T
@@ -118,5 +119,53 @@ def dis_metrics(source_1, source_2, z_1, z_2):
     source_dist = pdist(source, metric='euclidean')
     z_dist = pdist(z, metric='euclidean')
     dist_corr, _, _ = mantel(source_dist, z_dist, permutations=1)
+
+    return {**metrics, 'dist_corr': dist_corr}
+
+
+def dis_metrics_1D(source_1,  z_1, z_2, random_state=SEED):
+    # Correlate a 1D signal with both dimensions of a 2D embeddings
+    # Useful when only one latent factor is quantified, but the intrinsic dimensionality is
+    # higher. Ex: Embryoid single-cell genes are a function of time and cell function (which results
+    # in various manifold branches as the cells specialize). Only the time dimension can be
+    # correlated with the embedding axes. The other dimension must be assessed qualitatively.
+    metrics = dict()
+
+    z = np.vstack((z_1, z_2)).T
+    z_transformed = FastICA(random_state=random_state).fit_transform(z)
+
+    for f, name in ((pearsonr, 'pearson'), (spearmanr, 'spearman'), (MI, 'mutual_information')):
+        args = {}
+
+        for emb, suffix in ((z, ''), (z_transformed, '_ICA')):
+            c1, _ = f(source_1, emb[:, 0], **args)
+            c2, _ = f(source_1, emb[:, 1], **args)
+            c_max = max(abs(c1), abs(c2))
+
+            # Add two (identical) metrics to be compatible with other datasets with
+            # a 2D ground truth
+            key_1 = f'{name}' + suffix + '_source_1'
+            key_2 = f'{name}' + suffix + '_source_2'
+            corr =  {key_1: c_max, key_2: c_max}
+            metrics.update(**corr)
+
+        # Slice correlations
+        # TO DO : Fixed section metrics or remove them
+        # Lack of granularity in GT leads to constant GT over a specific section, which
+        # raises errors
+        # slice_1 = cuts(source_1, source_1, z[:, 0], f, **args)
+        # slice_2 = cuts(source_1, source_1, z[:, 1], f, **args)
+        # slice = max(abs(slice_1), abs(slice_2))
+        # slice = None
+        #
+        # key_1 = f'{name}_slice_source_1'
+        # key_2 = f'{name}_slice_source_2'
+        # corr =  {key_1: slice, key_2: slice}
+        # metrics.update(**corr)
+
+    # Distance correlation
+    source_dist = pdist(source_1.reshape((-1, 1)), metric='euclidean')
+    z_dist = pdist(z, metric='euclidean')
+    dist_corr, _, _ = mantel(source_dist, z_dist, permutations=100)
 
     return {**metrics, 'dist_corr': dist_corr}

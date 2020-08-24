@@ -18,7 +18,7 @@ SEED = 42
 BATCH_SIZE = 128
 LR = .0001
 WEIGHT_DECAY = 1
-EPOCHS = 1000
+EPOCHS = 10000
 HIDDEN_DIMS = (800, 400, 200)  # Default hidden MLP dimensions
 CONV_DIMS = [64, 128]
 CONV_FC_DIMS = [400, 200]
@@ -44,7 +44,7 @@ class BaseModel:
         if z.shape[1] != 2:
             raise Exception('Can only plot 2D embeddings.')
 
-        plt.scatter(*z.T, c=y, cmap='Spectral', s=.01)
+        plt.scatter(*z.T, c=y, cmap='Spectral', s=.1)
         plt.show()
 
         return z

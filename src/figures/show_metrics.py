@@ -30,14 +30,17 @@ def show_metrics(id, split, model_list, dataset_list):
     for base in ('pearson', 'spearman', 'mutual_information'):
         df[f'{base}'] = (df[f'{base}_source_1'] + df[f'{base}_source_2']) / 2
         df[f'{base}_ICA'] = (df[f'{base}_ICA_source_1'] + df[f'{base}_ICA_source_2']) / 2
-        df[f'{base}_slice'] = (df[f'{base}_slice_source_1'] + df[f'{base}_slice_source_2']) / 2
+        # df[f'{base}_slice'] = (df[f'{base}_slice_source_1'] + df[f'{base}_slice_source_2']) / 2
 
     # Keep only relevant columns
     df = df[['dataset', 'model', 'dist_corr',
-             'pearson', 'pearson_ICA', 'pearson_slice',
-             'spearman', 'spearman_ICA', 'spearman_slice',
-             'mutual_information', 'mutual_information_ICA', 'mutual_information_slice', 'reconstruction'
-             ]]
+             'pearson', 'pearson_ICA',
+             # 'pearson_slice',
+             'spearman', 'spearman_ICA',
+             # 'spearman_slice',
+             'mutual_information', 'mutual_information_ICA',
+             # 'mutual_information_slice',
+             'reconstruction']]
 
     # Provide order for models and datasets if needed
     df['model'] = pd.Categorical(df['model'], model_list)
