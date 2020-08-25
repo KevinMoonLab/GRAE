@@ -100,9 +100,9 @@ class Embryoid(BaseDataset):
 
         super().__init__(x, y, split, split_ratio, seed)
 
-    def get_source(self):
+    def get_latents(self):
         # Only 1D ground truth
-        return self.targets.numpy(), None
+        return self.targets.numpy().reshape((-1, 1))
 
 
 class IPSC(BaseDataset):
@@ -125,6 +125,6 @@ class IPSC(BaseDataset):
 
         super().__init__(x, y, split, split_ratio, seed)
 
-    def get_source(self):
+    def get_latents(self):
         # Only 1D ground truth
-        return self.targets.numpy(), None
+        return self.targets.numpy().reshape((-1, 1))

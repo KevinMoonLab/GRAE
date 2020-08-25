@@ -12,7 +12,6 @@ from src.metrics.dis_metrics import dis_metrics, dis_metrics_1D
 from src.figures.utils import load_dict
 
 
-
 class Book():
     """Class log metrics."""
 
@@ -94,7 +93,7 @@ def refine_df(df, df_metrics):
 #                'mutual_information_ICA_source_1', 'mutual_information_ICA_source_2',
 #                # 'mutual_information_slice_source_1', 'mutual_information_slice_source_2'
 # ]
-DIS_METRICS = ['R2_source_1', 'R2_source_2', 'R2', 'reconstruction']
+DIS_METRICS = ['R2', 'reconstruction']
 
 
 def score(id, model_list, dataset_list):
@@ -137,19 +136,20 @@ def score(id, model_list, dataset_list):
 
                 # Fit linear regressions on train split
                 X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
-                y_1, y_2 = X.get_source()
+                y = X.get_latents()
                 z_scaler = StandardScaler(with_std=True)
                 y_scaler = StandardScaler(with_std=True)
 
                 z = z_scaler.fit_transform(data[f'z_{split}'])
 
-                y_1, y_2 = y_scaler.fit_transform(np.vstack((y_1, y_2)).T).T
+                y = y_scaler.fit_transform(y)
 
-                m_1 = Lasso(alpha=.002, fit_intercept=False)
-                m_2 = Lasso(alpha=.002, fit_intercept=False)
+                r_2 = list()
 
-                m_1.fit(z, y_1)
-                m_2.fit(z, y_2)
+                for latent in y.T:
+                    m = Lasso(alpha=.002, fit_intercept=False)
+                    m.fit(z, latent)
+                    r_2.append(m.score(z, latent))
 
                 # X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
                 # y_1, y_2 = X.get_source()  # Fetch ground truth
@@ -165,10 +165,7 @@ def score(id, model_list, dataset_list):
                 #
                 rec_key = f'rec_{split}'
 
-
-                metrics.update({'R2_source_1': m_1.score(z, y_1)})
-                metrics.update({'R2_source_2': m_2.score(z, y_2)})
-                metrics.update({'R2': (metrics['R2_source_1'] + metrics['R2_source_2'])/2})
+                metrics.update({'R2': np.mean(r_2)})
                 metrics.update({'reconstruction': data[rec_key]})
 
                 book.add_entry(model=model, dataset=dataset, run=run_seed, split=split, **metrics)

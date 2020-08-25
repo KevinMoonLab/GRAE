@@ -58,7 +58,7 @@ class BaseDataset(Dataset):
 
     def numpy(self):
         n = len(self)
-        return self.data.numpy().reshape((n, -1)), self.targets.numpy()
+        return self.data.numpy().reshape((n, -1)), self.targets.numpy().flatten()
 
     def get_split(self, x, y, split, split_ratio, seed):
         if split == 'none':
@@ -74,7 +74,7 @@ class BaseDataset(Dataset):
         else:
             return torch.from_numpy(x[test_idx]), torch.from_numpy(y[test_idx])
 
-    def get_source(self):
-        # Override this with 1D or 2D source signals (ground truths)
-        return None, None
+    def get_latents(self):
+        # Return ndarray where columns are latent factors
+        return None
 

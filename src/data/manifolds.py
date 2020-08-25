@@ -88,10 +88,9 @@ class Roll(BaseDataset):
 
         super().__init__(x, y, split, split_ratio, seed)
 
-    def get_source(self):
-        # First source is coloring (representing the 'rolled' axis), second is
-        # the 'untransformed' first axis (length of the roll)
-        return self.targets.numpy(), self.y_pure
+    def get_latents(self):
+        # First source is coloring, second is the axis 1 (length of the roll)
+        return np.vstack((self.targets.numpy().flatten(), self.y_pure)).T
 
 
 class SwissRoll(Roll):
@@ -122,6 +121,3 @@ class SwissRoll(Roll):
             self.y_pure = self.y_pure[test_mask]
             return torch.from_numpy(x_test), torch.from_numpy(y_test)
 
-    def get_source(self):
-        # First source is coloring, second is the axis 1 (length of the roll)
-        return self.targets.numpy(), self.y_pure

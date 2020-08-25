@@ -51,8 +51,8 @@ class Faces(BaseDataset):
         print('Downloading Faces dataset...')
         urllib.request.urlretrieve(self.url, os.path.join(self.root, 'face_data.mat'))
 
-    def get_source(self):
-        return self.y_1, self.y_2
+    def get_latents(self):
+        return np.vstack((self.y_1, self.y_2)).T
 
 
 class Teapot(BaseDataset):
@@ -189,8 +189,8 @@ class Tracking(BaseDataset):
         # other datasets
         self.targets = self.targets[:, 0]
 
-    def get_source(self):
-        return self.y_1, self.y_2
+    def get_latents(self):
+        return np.vstack((self.y_1, self.y_2)).T
 
 
 class Rotated(BaseDataset):
