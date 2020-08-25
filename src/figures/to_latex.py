@@ -68,8 +68,9 @@ def to_latex(id, split, model_list, dataset_list, digits=3):
         mean['rel_reconstruction'] = mean['reconstruction']
 
         for ds in dataset_list:
-            quotient = mean[(mean['dataset'] == ds) & (mean['model'] == 'AE')]['reconstruction'].iloc[0]
-            mean['rel_reconstruction'][mean['dataset'] == ds] /= quotient
+            mask = (mean['dataset'] == ds) & (mean['model'] == 'AE')
+            quotient = mean.loc[mask, 'reconstruction'].iloc[0]
+            mean.loc[mean['dataset'] == ds, 'rel_reconstruction'] /= quotient
 
         mean['rel_reconstruction'] -= 1
         mean['rel_reconstruction'] *= 100
