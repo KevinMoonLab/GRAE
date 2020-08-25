@@ -96,6 +96,73 @@ def refine_df(df, df_metrics):
 DIS_METRICS = ['R2', 'reconstruction']
 
 
+def radial_regression(cartesian_emb, classes, angles):
+    """Regression of the angles of an embedding with an angle ground truth and return R^2.
+    Used for datasets such as Teapot and Rotated Digits.
+
+    If multiple classes (rings) are present, will return the R^2 average."""
+
+    if cartesian_emb.shape[1] != 2:
+        raise Exception('Radial regression requires conversion to polar coordinates. Will only work'
+                        'with 2 dimensions.')
+
+    c = np.unique(classes)
+    r2 = list()
+
+    for i in c:
+        mask = classes == i
+        emb = cartesian_emb[mask]
+        centered_emb = emb - emb.mean(axis=0)
+
+        class_angles = angles[mask]
+        phi = np.arctan2(*centered_emb.T) + np.pi
+
+
+        # Align smallest angle to prevent arbitrary rotation from affecting the regression
+
+        arg_min = min(class_angles.argmin(), phi.argmin())
+        phi -= phi[arg_min]
+        phi %= 2 * np.pi
+        class_angles -= class_angles[arg_min]
+        class_angles %= 2 * np.pi
+
+        corr, _ = pearsonr(phi, class_angles)
+
+        if corr < 0:
+            # If the correlation is inversed (negative slope) the minimum angle should be mapped to
+            # 2pi otherwise it'll be an outlier in the regression
+            phi[arg_min] = 2 * np.pi
+
+        import matplotlib.pyplot as plt
+        plt.scatter(phi, class_angles)
+        plt.show()
+
+        phi = phi.reshape((-1, 1))
+
+        m = Lasso(alpha=.002, fit_intercept=True)
+        m.fit(phi, class_angles)
+        r2.append(m.score(phi, class_angles))
+
+    return np.mean(r2)
+
+def latent_regression(z, y):
+    """Regression of latent ground truth factors (y) using embedding z."""
+    r2 = list()
+
+    z_scaler = StandardScaler(with_std=True)
+    y_scaler = StandardScaler(with_std=True)
+
+    z = z_scaler.fit_transform(z)
+    y = y_scaler.fit_transform(y)
+
+    for latent in y.T:
+        m = Lasso(alpha=.002, fit_intercept=False)
+        m.fit(z, latent)
+        r2.append(m.score(z, latent))
+
+    return np.mean(r2)
+
+
 def score(id, model_list, dataset_list):
     path = os.path.join(
         os.path.dirname(__file__),
@@ -137,19 +204,9 @@ def score(id, model_list, dataset_list):
                 # Fit linear regressions on train split
                 X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
                 y = X.get_latents()
-                z_scaler = StandardScaler(with_std=True)
-                y_scaler = StandardScaler(with_std=True)
+                z = data[f'z_{split}']
 
-                z = z_scaler.fit_transform(data[f'z_{split}'])
-
-                y = y_scaler.fit_transform(y)
-
-                r_2 = list()
-
-                for latent in y.T:
-                    m = Lasso(alpha=.002, fit_intercept=False)
-                    m.fit(z, latent)
-                    r_2.append(m.score(z, latent))
+                r2 = radial_regression(z, *y.T) if dataset in ['Teapot', 'RotatedDigits'] else latent_regression(z, y)
 
                 # X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
                 # y_1, y_2 = X.get_source()  # Fetch ground truth
@@ -165,7 +222,7 @@ def score(id, model_list, dataset_list):
                 #
                 rec_key = f'rec_{split}'
 
-                metrics.update({'R2': np.mean(r_2)})
+                metrics.update({'R2': np.mean(r2)})
                 metrics.update({'reconstruction': data[rec_key]})
 
                 book.add_entry(model=model, dataset=dataset, run=run_seed, split=split, **metrics)

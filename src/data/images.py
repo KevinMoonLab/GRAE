@@ -1,6 +1,7 @@
 """Images datasets."""
 import os
 import urllib
+import math
 
 import numpy as np
 from torchvision import transforms
@@ -101,6 +102,10 @@ class Teapot(BaseDataset):
     def _download(self):
         print('Downloading Teapot dataset')
         urllib.request.urlretrieve(self.url, os.path.join(self.root, 'teapot.mat'))
+
+    def get_latents(self):
+        """Return vector of 1 for compatibility with other rotations datasets (even if only 1 class here)."""
+        return np.vstack((np.ones(len(self)), self.targets.numpy().flatten() / (360/(2 * math.pi)))).T
 
 
 class Tracking(BaseDataset):
@@ -235,17 +240,29 @@ class Rotated(BaseDataset):
 
                 X1 = img_new.reshape(len(new_angles), 784)
 
-            return X1, np.full(shape=(N,), fill_value=c)
+            return X1, np.full(shape=(N,), fill_value=c), new_angles
 
         rotations = [generate_rotations(img, c=i, N=n_rotations)
                      for i, img in enumerate(imgs)]
 
-        X_rotated, Y_rotated = zip(*rotations)
+        inputs, targets, angles = zip(*rotations)
 
-        X_rotated = np.concatenate(X_rotated)
-        Y_rotated = np.concatenate(Y_rotated)
+        inputs = np.concatenate(inputs)
+        targets = np.concatenate(targets)
+        angles = np.concatenate(angles)
 
-        super().__init__(X_rotated, Y_rotated, split, split_ratio, seed)
+        # Send targets and angles as one object for compatibility with parent class
+        targets = np.vstack((targets, angles)).T
+
+        super().__init__(inputs, targets, split, split_ratio, seed)
+
+        # Split back angles and targets
+        self.angles = self.targets[:, 1]
+        self.targets = self.targets[:, 0]
+
+    def get_latents(self):
+        """Class as first column and angles (in radians) as second column."""
+        return np.vstack((self.targets.numpy().flatten(), self.angles.numpy().flatten() / (360/(2 * math.pi)))).T
 
 
 class RotatedDigits(Rotated):
