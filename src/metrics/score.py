@@ -2,11 +2,15 @@
 import pandas as pd
 import os
 
-from sklearn.linear_model import LinearRegression
+import numpy as np
+from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.preprocessing import StandardScaler
+from scipy.stats import pearsonr
 
 import src.data
 from src.metrics.dis_metrics import dis_metrics, dis_metrics_1D
 from src.figures.utils import load_dict
+
 
 
 class Book():
@@ -127,29 +131,40 @@ def score(id, model_list, dataset_list):
 
             # Score embedding
 
-            # Fit linear regressions on train split
-            X = getattr(src.data, dataset)(split='train', seed=dataset_seed)
-            y_1, y_2 = X.get_source()
-
-            z_train = data['z_train']
-
-            print((dataset != 'SwissRoll'))
-            m_1 = LinearRegression(normalize=(dataset != 'SwissRoll'), n_jobs=-1)
-            m_2 = LinearRegression(normalize=(dataset != 'SwissRoll'), n_jobs=-1)
-
-            m_1.fit(z_train, y_1)
-            m_2.fit(z_train, y_2)
-
-
             # Score both splits
             for split in ('train', 'test'):
                 metrics = dict()
 
-                z = data[f'z_{split}']
-
+                # Fit linear regressions on train split
                 X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
-                y_1, y_2 = X.get_source()  # Fetch ground truth
+                y_1, y_2 = X.get_source()
+                z_scaler = StandardScaler(with_std=True)
+                y_scaler = StandardScaler(with_std=True)
+
+                z = z_scaler.fit_transform(data[f'z_{split}'])
+
+                y_1, y_2 = y_scaler.fit_transform(np.vstack((y_1, y_2)).T).T
+
+                m_1 = Lasso(alpha=.002, fit_intercept=False)
+                m_2 = Lasso(alpha=.002, fit_intercept=False)
+
+                m_1.fit(z, y_1)
+                m_2.fit(z, y_2)
+
+                # X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
+                # y_1, y_2 = X.get_source()  # Fetch ground truth
+
+                # if dataset == 'SwissRoll':
+                #     # The 'Slice' on Swiss Roll is out of distribution with different mean and variance.
+                #     # Rescale data based on test mean to avoid bias in the predictions.
+                #     z = z_scaler.fit_transform(data[f'z_{split}'])
+                #     y_1, y_2 = y_scaler.fit_transform(np.vstack((y_1, y_2)).T).T
+                # else:
+                #     z = z_scaler.transform(data[f'z_{split}'])
+                #     y_1, y_2 = y_scaler.transform(np.vstack((y_1, y_2)).T).T
+                #
                 rec_key = f'rec_{split}'
+
 
                 metrics.update({'R2_source_1': m_1.score(z, y_1)})
                 metrics.update({'R2_source_2': m_2.score(z, y_2)})
