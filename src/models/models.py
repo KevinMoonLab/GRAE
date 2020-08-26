@@ -37,14 +37,14 @@ class BaseModel:
     def transform(self, X):
         raise NotImplementedError()
 
-    def fit_plot(self, X):
+    def fit_plot(self, X, cmap='jet', s=1):
         z = self.fit_transform(X)
         y = X.targets.numpy()
 
         if z.shape[1] != 2:
             raise Exception('Can only plot 2D embeddings.')
 
-        plt.scatter(*z.T, c=y, cmap='Spectral', s=.1)
+        plt.scatter(*z.T, c=y, cmap=cmap, s=s)
         plt.show()
 
         return z
