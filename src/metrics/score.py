@@ -96,7 +96,7 @@ def refine_df(df, df_metrics):
 DIS_METRICS = ['R2', 'reconstruction']
 
 
-def radial_regression(cartesian_emb, classes, angles):
+def radial_regression(cartesian_emb, labels, angles):
     """Regression of the angles of an embedding with an angle ground truth and return R^2.
     Used for datasets such as Teapot and Rotated Digits.
 
@@ -106,11 +106,11 @@ def radial_regression(cartesian_emb, classes, angles):
         raise Exception('Radial regression requires conversion to polar coordinates. Will only work'
                         'with 2 dimensions.')
 
-    c = np.unique(classes)
+    c = np.unique(labels)
     r2 = list()
 
     for i in c:
-        mask = classes == i
+        mask = labels == i
         emb = cartesian_emb[mask]
         centered_emb = emb - emb.mean(axis=0)
 
@@ -145,20 +145,30 @@ def radial_regression(cartesian_emb, classes, angles):
 
     return np.mean(r2)
 
-def latent_regression(z, y):
+def latent_regression(z, y, labels=None):
     """Regression of latent ground truth factors (y) using embedding z."""
     r2 = list()
 
-    z_scaler = StandardScaler(with_std=True)
-    y_scaler = StandardScaler(with_std=True)
+    if labels is None:
+        labels = np.ones(z.shape[0])
 
-    z = z_scaler.fit_transform(z)
-    y = y_scaler.fit_transform(y)
+    c = np.unique(labels)
 
-    for latent in y.T:
-        m = Lasso(alpha=.002, fit_intercept=False)
-        m.fit(z, latent)
-        r2.append(m.score(z, latent))
+    for i in c :
+        mask = labels == i
+        z_c = z[mask]
+        y_c = y[mask].reshape((-1, 1))
+
+        z_scaler = StandardScaler(with_std=True)
+        y_scaler = StandardScaler(with_std=True)
+
+        z_c = z_scaler.fit_transform(z_c)
+        y_c = y_scaler.fit_transform(y_c)
+
+        for latent in y_c.T:
+            m = Lasso(alpha=.002, fit_intercept=False)
+            m.fit(z_c, latent)
+            r2.append(m.score(z_c, latent))
 
     return np.mean(r2)
 
@@ -206,7 +216,13 @@ def score(id, model_list, dataset_list):
                 y = X.get_latents()
                 z = data[f'z_{split}']
 
-                r2 = radial_regression(z, *y.T) if dataset in ['Teapot', 'RotatedDigits'] else latent_regression(z, y)
+                if dataset in ['Teapot', 'RotatedDigits']:
+                    r2 = radial_regression(z, *y.T)
+                elif dataset in ['UMIST']:
+                    labels, angles = y.T
+                    r2 = latent_regression(z, angles, labels=labels)
+                else:
+                    r2 = latent_regression(z, y)
 
                 # X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
                 # y_1, y_2 = X.get_source()  # Fetch ground truth

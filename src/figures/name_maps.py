@@ -19,6 +19,7 @@ ds_name = dict(SwissRoll='Swiss Roll',
                Teapot='Teapot',
                Embryoid='EB Differentiation',
                IPSC='IPSC',
+               UMIST='UMIST Faces',
                Tracking='Object Tracking')
 
 metrics_name = dict(dataset='Dataset', model='Model',

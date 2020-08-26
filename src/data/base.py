@@ -40,12 +40,12 @@ class NumpyDataset(Dataset):
 class BaseDataset(Dataset):
     """All datasetse should subclass BaseDataset."""
 
-    def __init__(self, x, y, split, split_ratio, seed):
+    def __init__(self, x, y, split, split_ratio, seed, labels=None):
         if split not in ('train', 'test', 'none'):
             raise Exception('split argument should be "train", "test" or "none"')
 
         # Get train or test split
-        x, y = self.get_split(x, y, split, split_ratio, seed)
+        x, y = self.get_split(x, y, split, split_ratio, seed, labels)
 
         self.data = x.float()
         self.targets = y.float()

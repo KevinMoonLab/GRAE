@@ -56,6 +56,83 @@ class Faces(BaseDataset):
         return np.vstack((self.y_1, self.y_2)).T
 
 
+class UMIST(BaseDataset):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
+        self.url = 'https://cs.nyu.edu/~roweis/data/umist_cropped.mat'
+        self.root = os.path.join(BASEPATH, 'UMIST')
+
+        if not os.path.exists(self.root):
+            os.mkdir(self.root)
+            self._download()
+
+        d = loadmat(os.path.join(self.root, 'UMIST.mat'))
+
+        data = d['facedat'][0]
+        x = list()
+        targets = list()
+
+        for i, p in enumerate(data):
+            p = np.moveaxis(p, (0, 1), (1, 2))
+
+            p.reshape((-1, 112 * 92)) # Flat array
+
+            # Some subjects require reordering for order to roughly match rotation angles
+
+            # Person 6
+            if i == 6:
+                mask = [0, 1, 2, 18, 17, 16, 15, 14, 13, 12, 3, 11, 10, 4, 9, 5, 6, 8, 7]
+                p = p[mask]
+
+            # Person 8
+            if i == 8:
+                mask = [0, 1, 2, 3, 19, 18, 17, 4, 16, 5, 6, 15, 7, 14, 8, 9, 10, 11, 13, 12]
+                p = p[mask]
+
+            # 9_30 is an outlier
+
+            # Person 13
+            if i == 13:
+                mask = [0, 14, 15, 16, 17, 18, 1, 13, 19, 20, 2, 21, 3, 4, 22, 12,
+                        23, 5, 24, 6, 25, 26, 11, 7, 27, 28, 8, 29, 9, 10]
+                p = p[mask]
+
+            # The last 3-4 images of person 14 have different head angles
+            # Person 15
+            if i == 15:
+                mask = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 23, 24, 25, 18, 19, 20, 21, 22]
+                p = p[mask]
+
+            # Person 19
+            if i == 19:
+                mask = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                        28, 29, 30, 31, 32, 23, 27, 33, 24, 25, 26]
+                p = p[mask]
+
+            x.append(p)
+            targets.append(np.vstack((i * np.ones(p.shape[0]), np.arange(p.shape[0]))).T)
+
+        x = np.vstack(x)/255
+        targets = np.vstack(targets)
+
+        super().__init__(x, targets, split, split_ratio, seed, labels=targets[:, 0].astype(int).reshape(-1))
+
+        # Store both classes and angles as latents
+        self.latents = np.copy(self.targets)
+
+        # Keep only classes as targets
+        self.targets = self.targets[:, 0]
+
+        # Reshape dataset in image format
+        if ALLOW_CONV:
+            self.data = self.data.view(-1, 1, 112, 92)
+
+    def _download(self):
+        print('Downloading UMIST dataset...')
+        urllib.request.urlretrieve(self.url, os.path.join(self.root, 'UMIST.mat'))
+
+    def get_latents(self):
+        return self.latents
+
 class Teapot(BaseDataset):
     def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
         self.url = 'https://github.com/calebralphs/maximum-variance-unfolding/blob/master/Teapots.mat?raw=true'
