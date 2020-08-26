@@ -60,14 +60,15 @@ class BaseDataset(Dataset):
         n = len(self)
         return self.data.numpy().reshape((n, -1)), self.targets.numpy().flatten()
 
-    def get_split(self, x, y, split, split_ratio, seed):
+    def get_split(self, x, y, split, split_ratio, seed, labels=None):
         if split == 'none':
             return torch.from_numpy(x), torch.from_numpy(y)
 
         n = x.shape[0]
         train_idx, test_idx = train_test_split(np.arange(n),
                                                train_size=split_ratio,
-                                               random_state=seed)
+                                               random_state=seed,
+                                               stratify=labels)
 
         if split == 'train':
             return torch.from_numpy(x[train_idx]), torch.from_numpy(y[train_idx])
