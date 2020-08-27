@@ -251,6 +251,11 @@ class TopologicalSignatureDistance(nn.Module):
         return distance, distance_components
 
 
+def compute_distance_matrix(x, p=2):
+    x_flat = x.view(x.size(0), -1)
+    distances = torch.norm(x_flat[:, None] - x_flat, dim=2, p=p)
+    return distances
+
 class TopoAELoss(nn.Module):
     """This class is adapted from their code and not original"""
     # Using TopoRegEdgeSymmetric from their results
@@ -260,11 +265,6 @@ class TopoAELoss(nn.Module):
         self.latent_norm = torch.nn.Parameter(data=torch.ones(1),
                                               requires_grad=True).to(device)
 
-    @staticmethod
-    def _compute_distance_matrix(x, p=2):
-        x_flat = x.view(x.size(0), -1)
-        distances = torch.norm(x_flat[:, None] - x_flat, dim=2, p=p)
-        return distances
 
     def forward(self, x, latent):
         """Compute the loss of the Topologically regularized autoencoder.
@@ -291,7 +291,7 @@ class TopoAELoss(nn.Module):
             # Else just take the max distance we got in the batch
             x_distances = x_distances / x_distances.max()
 
-        latent_distances = self._compute_distance_matrix(latent)
+        latent_distances = compute_distance_matrix(latent)
         latent_distances = latent_distances / self.latent_norm
 
         topo_error, _ = self.topo_sig(
