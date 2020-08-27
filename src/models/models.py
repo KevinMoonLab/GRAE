@@ -4,7 +4,6 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 import numpy as np
 import phate
-import umap
 import scipy
 from scipy.spatial.distance import pdist, squareform
 from sklearn.metrics import mean_squared_error
@@ -18,10 +17,10 @@ SEED = 42
 BATCH_SIZE = 128
 LR = .0001
 WEIGHT_DECAY = 1
-EPOCHS = 10000
-HIDDEN_DIMS = (800, 400, 200)  # Default hidden MLP dimensions
-CONV_DIMS = [32, 64]
-CONV_FC_DIMS = [400, 200]
+EPOCHS = 1000
+HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
+CONV_DIMS = [32, 64] # Default conv channels
+CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
 
 
 class BaseModel:
@@ -48,23 +47,6 @@ class BaseModel:
         plt.show()
 
         return z
-
-
-class UMAP(umap.UMAP, BaseModel):
-    """Thin wrapper for UMAP to work with torch datasets."""
-
-    def fit(self, X):
-        x, _ = X.numpy()
-        super().fit(x)
-
-    def fit_transform(self, X):
-        x, _ = X.numpy()
-        super().fit(x)
-        return super().transform(x)
-
-    def transform(self, X):
-        x, _ = X.numpy()
-        return super().transform(x)
 
 
 class PHATE(phate.PHATE, BaseModel):

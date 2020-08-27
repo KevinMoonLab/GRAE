@@ -121,3 +121,87 @@ class SwissRoll(Roll):
             self.y_pure = self.y_pure[test_mask]
             return torch.from_numpy(x_test), torch.from_numpy(y_test)
 
+
+
+"""Following is from the Topological Autoencoders paper from Moor & al to unit test our TopoAE class.
+
+Copied from their source code. Available here : https://osf.io/abuce/?view_only=f16d65d3f73e4918ad07cdd08a1a0d4b"""
+def dsphere(n=100, d=2, r=1, noise=None, ambient=None):
+    """
+    Sample `n` data points on a d-sphere.
+
+    Parameters
+    -----------
+    n : int
+        Number of data points in shape.
+    r : float
+        Radius of sphere.
+    ambient : int, default=None
+        Embed the sphere into a space with ambient dimension equal to `ambient`. The sphere is randomly rotated in this high dimensional space.
+    """
+    data = np.random.randn(n, d+1)
+
+    # Normalize points to the sphere
+    data = r * data / np.sqrt(np.sum(data**2, 1)[:, None])
+
+    if noise:
+        data += noise * np.random.randn(*data.shape)
+
+    if ambient:
+        assert ambient > d, "Must embed in higher dimensions"
+        data = embed(data, ambient)
+
+
+
+    return data
+
+
+def create_sphere_dataset(n_samples=500, d=100, n_spheres=11, r=5, seed=42):
+    np.random.seed(seed)
+
+    # it seemed that rescaling the shift variance by sqrt of d lets big sphere stay around the inner spheres
+    variance = 10 / np.sqrt(d)
+
+    shift_matrix = np.random.normal(0, variance, [n_spheres, d + 1])
+
+    spheres = []
+    n_datapoints = 0
+    for i in np.arange(n_spheres - 1):
+        sphere = dsphere(n=n_samples, d=d, r=r)
+        spheres.append(sphere + shift_matrix[i, :])
+        n_datapoints += n_samples
+
+    # Additional big surrounding sphere:
+    n_samples_big = 10 * n_samples  # int(n_samples/2)
+    big = dsphere(n=n_samples_big, d=d, r=r * 5)
+    spheres.append(big)
+    n_datapoints += n_samples_big
+
+    # if plot:
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(111, projection="3d")
+    #     colors = matplotlib.cm.rainbow(np.linspace(0, 1, n_spheres))
+    #     for data, color in zip(spheres, colors):
+    #         ax.scatter(data[:, 0], data[:, 1], data[:, 2], c=[color])
+    #     plt.show()
+
+    # Create Dataset:
+    dataset = np.concatenate(spheres, axis=0)
+
+    labels = np.zeros(n_datapoints)
+    label_index = 0
+    for index, data in enumerate(spheres):
+        n_sphere_samples = data.shape[0]
+        labels[label_index:label_index + n_sphere_samples] = index
+        label_index += n_sphere_samples
+
+    return dataset, labels
+
+class Spheres(BaseDataset):
+    """Small high dimensional spheres in a big sphere, as presented in the Topological Autoencoders paper."""
+
+    def __init__(self, n_samples=SAMPLE, split='none', split_ratio=FIT_DEFAULT,
+                 seed=SEED):
+        x, y = create_sphere_dataset(seed=seed)
+
+        super().__init__(x, y, split, split_ratio, seed)
