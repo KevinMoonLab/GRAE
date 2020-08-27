@@ -133,10 +133,6 @@ def radial_regression(cartesian_emb, labels, angles):
             # 2pi otherwise it'll be an outlier in the regression
             phi[arg_min] = 2 * np.pi
 
-        import matplotlib.pyplot as plt
-        plt.scatter(phi, class_angles)
-        plt.show()
-
         phi = phi.reshape((-1, 1))
 
         m = Lasso(alpha=.002, fit_intercept=True)
@@ -216,7 +212,7 @@ def score(id, model_list, dataset_list):
                 y = X.get_latents()
                 z = data[f'z_{split}']
 
-                if dataset in ['Teapot', 'RotatedDigits']:
+                if dataset in ['Teapot', 'RotatedDigits', 'COIL100']:
                     r2 = radial_regression(z, *y.T)
                 elif dataset in ['UMIST']:
                     labels, angles = y.T

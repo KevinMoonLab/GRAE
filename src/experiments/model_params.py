@@ -10,7 +10,8 @@ PHATE_dict = dict(  # Dataset specific arguments
     Teapot=dict(knn=10, t=100),
     Embryoid = dict(knn=5, t=25),
     IPSC=dict(knn=15, t=250),
-    UMIST = dict(knn=6, t=50)
+    UMIST = dict(knn=6, t=50),
+    COIL100 = dict(knn=3, t=100),
 )
 
 
@@ -24,7 +25,8 @@ UMAP_dict = dict(  # Dataset specific arguments
     Teapot=dict(n_neighbors=15),
     Embryoid=dict(n_neighbors=15),
     IPSC=dict(n_neighbors=15),
-    UMIST=dict(n_neighbors=6)
+    UMIST=dict(n_neighbors=6),
+    COIL100=dict(n_neighbors=3),
 )
 
 # TSNE perplexity
@@ -37,7 +39,8 @@ TSNE_dict = dict(  # Dataset specific arguments
     Teapot=dict(perplexity=10),
     Embryoid=dict(perplexity=10),
     IPSC=dict(perplexity=10),
-    UMIST=dict(perplexity=10)
+    UMIST=dict(perplexity=10),
+    COIL100=dict(perplexity=10),
 )
 
 # Add defaults to dataset specific dicts

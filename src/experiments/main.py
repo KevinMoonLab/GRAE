@@ -24,9 +24,9 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # (ex: GRAE_10) to choose the lambda value
 # Specific model arguments can be changed in the model_params.py module
 MODELS = ['AE', 'SoftGRAE_100']
-DATASETS = ['IPSC']
+DATASETS = ['COIL100']
 
-EPOCHS = 2
+EPOCHS = 250
 
 RUNS = 1
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
@@ -117,7 +117,7 @@ for model in MODELS:
 # Score embeddings, plot embeddings and generate latex tables
 grid_plot(ID, MODELS, DATASETS, 1)
 score(ID, MODELS, DATASETS)
-metrics_train = show_metrics(ID, 'train', MODELS, DATASETS)
-metrics_test = show_metrics(ID, 'test', MODELS, DATASETS)
+# metrics_train = show_metrics(ID, 'train', MODELS, DATASETS)
+# metrics_test = show_metrics(ID, 'test', MODELS, DATASETS)
 to_latex(ID, 'train', MODELS, DATASETS)
 to_latex(ID, 'test', MODELS, DATASETS)
