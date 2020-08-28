@@ -18,12 +18,12 @@ PHATE_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(knn=20, t=50),
     Faces=dict(knn=5, t=50),
     RotatedDigits=dict(knn=5, t=50),
-    Tracking=dict(knn=5, t=50),
+    Tracking=dict(knn=15, t=50),
     Teapot=dict(knn=5, t=50),
-    Embryoid=dict(knn=5, t=50),
-    IPSC=dict(knn=5, t=50),
+    Embryoid=dict(knn=15, t=50),
+    IPSC=dict(knn=15, t=250),
     UMIST=dict(knn=5, t=50),
-    COIL100=dict(knn=5, t=100),
+    COIL100=dict(knn=5, t=50),
 )
 
 
