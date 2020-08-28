@@ -19,7 +19,7 @@ LR = .0001
 WEIGHT_DECAY = 1
 EPOCHS = 1000
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
-CONV_DIMS = [32, 64] # Default conv channels
+CONV_DIMS = [32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
 
 
@@ -88,33 +88,34 @@ class AE(BaseModel):
         self.conv_dims = conv_dims
         self.conv_fc_dims = conv_fc_dims
 
-    def fit(self, X):
+    def fit(self, X, epochs=None, epoch_offset=0):
+        if epochs is None:
+            epochs = self.epochs
+
         # Reproducibility
         torch.manual_seed(self.random_state)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-        if self.fitted:
-            raise Exception('Cannot fit a second time.')
-
-        # Infer input size from data. Initialize torch module and optimizer
-        if len(X[0][0].shape) == 1:
-            # Linear case
-            input_size = X[0][0].shape[0]
-            self.torch_module = AutoencoderModule(input_dim=input_size,
-                                                  hidden_dims=self.hidden_dims,
-                                                  z_dim=self.n_components)
-        elif len(X[0][0].shape) == 3:
-            in_channel, height, width = X[0][0].shape
-            #  Convolutionnal case
-            self.torch_module = ConvAutoencoderModule(H=height,
-                                                      W=width,
-                                                      input_channel=in_channel,
-                                                      channel_list=self.conv_dims,
-                                                      hidden_dims=self.conv_fc_dims,
+        if self.torch_module is None:
+            # Infer input size from data. Initialize torch module and optimizer
+            if len(X[0][0].shape) == 1:
+                # Linear case
+                input_size = X[0][0].shape[0]
+                self.torch_module = AutoencoderModule(input_dim=input_size,
+                                                      hidden_dims=self.hidden_dims,
                                                       z_dim=self.n_components)
-        else:
-            raise Exception(f'Invalid channel number. X has {len(X[0][0].shape)}')
+            elif len(X[0][0].shape) == 3:
+                in_channel, height, width = X[0][0].shape
+                #  Convolutionnal case
+                self.torch_module = ConvAutoencoderModule(H=height,
+                                                          W=width,
+                                                          input_channel=in_channel,
+                                                          channel_list=self.conv_dims,
+                                                          hidden_dims=self.conv_fc_dims,
+                                                          z_dim=self.n_components)
+            else:
+                raise Exception(f'Invalid channel number. X has {len(X[0][0].shape)}')
 
         self.optimizer = torch.optim.Adam(self.torch_module.parameters(),
                                           lr=self.lr,
@@ -125,8 +126,8 @@ class AE(BaseModel):
 
         self.loader = self.get_loader(X)
 
-        for epoch in range(self.epochs):
-            print(f'            Epoch {epoch}...')
+        for epoch in range(epochs):
+            print(f'            Epoch {epoch + epoch_offset}...')
             for batch in self.loader:
                 self.optimizer.zero_grad()
                 self.train_body(batch)
@@ -183,20 +184,43 @@ class AE(BaseModel):
 class GRAE(AE):
     """Standard GRAE class."""
 
-    def __init__(self, *, lam=10, drop_lam=None, embedder=PHATE, embedder_args=dict(), **kwargs):
+    def __init__(self, *, lam=10, drop_lam=.5, embedder=PHATE, embedder_args=dict(), max_grae=50000, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.embedder = embedder(**embedder_args,
                                  random_state=self.random_state, n_components=self.n_components)
         self.z = None
-        self.drop_lam = drop_lam
+        self.drop_lam = int(drop_lam * self.epochs) if drop_lam is not None else self.epochs
+
+        # Max samples to embed. Model will fit embedded samples for drop_lam epochs and fit
+        # all samples using only reconstruction for the remaining epochs
+        self.max_grae = max_grae
 
     def fit(self, X):
+        if self.max_grae is not None and len(X) > self.max_grae:
+            # Subsample train set
+            print(f'        More than {self.max_grae} samples detected. Subsampling dataset for GRAE training')
+            grae_data = X.subset(self.max_grae)
+        else:
+            # Use all data
+            grae_data = X
+
         # Find manifold learning embedding
-        emb = scipy.stats.zscore(self.embedder.fit_transform(X))
+        emb = scipy.stats.zscore(self.embedder.fit_transform(grae_data))
         self.z = torch.from_numpy(emb).float().to(device)
 
-        super().fit(X)
+        # Fit on subset with geometric regularization
+        print('        Fitting GRAE...')
+        super().fit(grae_data, epochs=self.drop_lam)
+
+        if self.drop_lam < self.epochs:
+            print('        Setting lambda to 0...')
+            if len(grae_data) < len(X):
+                print('        Training on whole dataset...')
+
+            # Fit on all dataset with no geometric regularization for remaining epochs
+            self.lam = 0
+            super().fit(X, epochs=self.epochs - self.drop_lam, epoch_offset=self.drop_lam)
 
     def apply_loss(self, x, x_hat, z, idx):
         if self.lam > 0:
@@ -205,11 +229,6 @@ class GRAE(AE):
             loss = self.criterion(x, x_hat)
 
         loss.backward()
-
-    def end_epoch(self, epoch):
-        # Soft GRAE (turn off geometric loss after drop_lam epochs)
-        if self.drop_lam is not None and epoch == self.drop_lam - 1:
-            self.lam = 0
 
 
 class SGRAE(AE):
@@ -259,11 +278,3 @@ class SGRAE(AE):
         # Soft GRAE (turn off geometric loss after drop_lam epochs)
         if self.drop_lam is not None and epoch == self.drop_lam - 1:
             self.lam = 0
-
-
-class SoftGRAE(GRAE):
-    """GRAE class where the geometric regularization is dropped after 50 % of epochs."""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.drop_lam = self.epochs // 2

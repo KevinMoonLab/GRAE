@@ -62,7 +62,6 @@ for key, d in TSNE_dict.items():
 DEFAULTS = {
     'AE': dict(),
     'GRAE': dict(),
-    'SoftGRAE': dict(),
     'SGRAE': dict(),
     'UMAP': dict(),
     'EAERMargin': dict(),
@@ -73,7 +72,6 @@ DATASET_PARAMS = {
     'AE': dict(),
     'GRAE': PHATE_dict,
     'SGRAE': PHATE_dict,
-    'SoftGRAE': PHATE_dict,
     'UMAP': UMAP_dict,
     'EAERMargin': dict(),
     'TopoAE': dict(),
