@@ -23,10 +23,8 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # Names should be the same as the class names defined in the models and datasets modules. GRAE variants can be suffixed
 # (ex: GRAE_10) to choose the lambda value
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['AE', 'SoftGRAE_100']
-DATASETS = ['COIL100']
-
-EPOCHS = 250
+MODELS = ['AE', 'GRAE_100']
+DATASETS = ['Faces', 'Teapot']
 
 RUNS = 1
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
@@ -84,16 +82,19 @@ for model in MODELS:
                 lam = int(arg_list[1])
                 params.update(dict(lam=lam))
 
-            m = getattr(src.models, model_name)(epochs=EPOCHS, random_state=RANDOM_STATES[j], **params)
+            m = getattr(src.models, model_name)(random_state=RANDOM_STATES[j], **params)
 
             # Benchmark fit time
             fit_start = time.time()
 
-            z_train = m.fit_transform(data_train)
+            m.fit(data_train)
 
             fit_stop = time.time()
 
             fit_time = fit_stop - fit_start
+
+            # Transform train data
+            z_train = m.transform(data_train)
 
             # Benchmark transform time if required
             transform_start = time.time()

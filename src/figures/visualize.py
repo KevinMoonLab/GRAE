@@ -45,9 +45,17 @@ def grid_plot(id, model_list, dataset_list, run):
             else:
                 ax_i = ax[i, j]
 
-            ax_i.scatter(*z_train.T, s=1.5, alpha=.2, color='grey')
+            s_train = 1.5
 
-            ax_i.scatter(*z_test.T, c=y_test, s=15, cmap='jet')
+            s_test = 15
+
+            if z_test.shape[0] > 1000:
+                s_train /= 10
+                s_test /= 10
+
+            ax_i.scatter(*z_train.T, s=s_train, alpha=.2, color='grey')
+
+            ax_i.scatter(*z_test.T, c=y_test, s=s_test, cmap='jet')
 
             if i == 0:
                 ax_i.set_title(f'{titles[j]}', fontsize=20, color='black')

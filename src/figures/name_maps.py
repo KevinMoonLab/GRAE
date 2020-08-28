@@ -8,11 +8,10 @@ model_name = dict(Umap_t='UMAP',
                   EAERMargin='EAER-Margin',
                   AE='Autoencoder')
 
-base_name = dict(GRAE='GRAE (',
-                 GRAE_TSNE='GRAE t-SNE (',
-                 GRAE_UMAP='GRAE UMAP (',
-                 TopoAE='TAE (',
-                 SGRAE='Siamese GRAE (')
+base_name = dict(GRAE='GRAE',
+                 GRAE_TSNE='GRAE t-SNE',
+                 GRAE_UMAP='GRAE UMAP',
+                 SGRAE='Siamese GRAE')
 
 ds_name = dict(SwissRoll='Swiss Roll',
                Faces='Faces',
@@ -56,7 +55,8 @@ def get_model_name(m):
     if m not in model_name:
         splits = m.split('_')
         base, lam = splits[0], splits[1]
-        return base_name[base] + f'{lam})'
+        # return base_name[base] + f'{lam})'
+        return base_name[base]  # No need to display lambda since we do not compare different lambda values
 
     return model_name[m]
 
