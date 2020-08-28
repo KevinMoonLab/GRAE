@@ -25,6 +25,8 @@ class UMAP(umap.UMAP, BaseModel):
         x, _ = X.numpy()
         return super().transform(x)
 
+    def reconstruct(self, X):
+        return self.inverse_transform(self.transform(X))
 
 class TopoAE(AE):
     """AE with topological loss. See topo.py"""

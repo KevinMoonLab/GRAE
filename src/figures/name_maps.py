@@ -1,6 +1,5 @@
 """Prettier names for models, datasets and metrics."""
-model_name = dict(Umap_t='UMAP',
-                  Umap='UMAP',
+model_name = dict(UMAP='UMAP',
                   diffusion_net='Diffusion Nets',
                   PHATE='PHATE',
                   TSNE='t-SNE',

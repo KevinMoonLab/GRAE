@@ -1,4 +1,6 @@
 """Model classes with sklearn inspired interface."""
+import time
+
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -17,7 +19,7 @@ SEED = 42
 BATCH_SIZE = 128
 LR = .0001
 WEIGHT_DECAY = 1
-EPOCHS = 1000
+EPOCHS = 800
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
 CONV_DIMS = [32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
@@ -47,6 +49,34 @@ class BaseModel:
         plt.show()
 
         return z
+
+    def reconstruct(self, X):
+        return self.inverse_transform(self.transform(X))
+
+    def score(self, X, split_name):
+        n = len(X)
+
+        start = time.time()
+        z = self.transform(X)
+        stop = time.time()
+
+        transform_time = stop - start
+
+        start = time.time()
+        x_hat = self.inverse_transform(z)
+        stop = time.time()
+
+        rec_time = stop - start
+
+        x, _ = X.numpy()
+        MSE = mean_squared_error(x.reshape((n, -1)), x_hat.reshape((n, -1)))
+
+        return {
+            f'z_{split_name}': z,
+            f'rec_{split_name}': MSE,
+            f'rec_time_{split_name}': rec_time,
+            f'transform_time_{split_name}': transform_time,
+        }
 
 
 class PHATE(phate.PHATE, BaseModel):
@@ -171,14 +201,6 @@ class AE(BaseModel):
 
         return np.concatenate(x_hat)
 
-    def reconstruct(self, X):
-        return self.inverse_transform(self.transform(X))
-
-    def score_reconstruction(self, X):
-        n = len(X)
-        x_hat = self.reconstruct(X)
-        x, _ = X.numpy()
-        return mean_squared_error(x.reshape((n, -1)), x_hat.reshape((n, -1)))
 
 
 class GRAE(AE):

@@ -17,13 +17,12 @@ from src.metrics import score
 from src.figures import grid_plot, show_metrics, to_latex
 from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 
-
 # Fit models
 # Models and Datasets for experiment
 # Names should be the same as the class names defined in the models and datasets modules. GRAE variants can be suffixed
 # (ex: GRAE_10) to choose the lambda value
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['AE', 'GRAE_100']
+MODELS = ['AE']
 DATASETS = ['Faces', 'Teapot']
 
 RUNS = 1
@@ -36,6 +35,7 @@ RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
 def save_dict(di_, filename_):
     with open(filename_, 'wb') as f:
         pickle.dump(di_, f)
+
 
 # Create PATH variable and directory to save embeddings
 ID = str(int((datetime.datetime.now() - datetime.datetime(2020, 8, 1)).total_seconds() * 1e6))  # Create ID with time
@@ -93,25 +93,15 @@ for model in MODELS:
 
             fit_time = fit_stop - fit_start
 
-            # Transform train data
-            z_train = m.transform(data_train)
-
-            # Benchmark transform time if required
-            transform_start = time.time()
-            z_test = m.transform(data_test)
-            transform_stop = time.time()
-
-            transform_time = transform_stop - transform_start
-
             # Compute reconstruction right away to avoid needing to save all reconstructed samples
-            rec_train = m.score_reconstruction(data_train)
-            rec_test = m.score_reconstruction(data_test)
+            train_results = m.score(data_train, split_name='train')
+            test_results = m.score(data_test, split_name='test')
 
             # Save embeddings
-            obj = dict(z_train=z_train, z_test=z_test,
-                       rec_train=rec_train, rec_test=rec_test,
-                       fit_time=fit_time, transform_time=transform_time,
-                       dataset_seed=RANDOM_STATES[j], run_seed=RANDOM_STATES[j])
+            obj = dict(fit_time=fit_time,
+                       dataset_seed=RANDOM_STATES[j], run_seed=RANDOM_STATES[j],
+                       **train_results,
+                       **test_results)
 
             save_dict(obj, os.path.join(target, f'run_{j + 1}.pkl'))
 
