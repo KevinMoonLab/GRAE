@@ -41,7 +41,7 @@ class TopoAE(AE):
 
 
 class EAERMargin(AE):
-    def __init__(self, *, lam=100, n_neighbors=10, margin=1, **kwargs):
+    def __init__(self, *, lam=1, n_neighbors=10, margin=1, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.n_neighbors = n_neighbors

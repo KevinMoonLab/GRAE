@@ -277,7 +277,7 @@ class TopoAELoss(nn.Module):
 
       """
 
-        x_distances = self._compute_distance_matrix(x)
+        x_distances = compute_distance_matrix(x)
 
         dimensions = x.size()
         if len(dimensions) == 4:

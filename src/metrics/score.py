@@ -153,7 +153,7 @@ def latent_regression(z, y, labels=None):
     for i in c :
         mask = labels == i
         z_c = z[mask]
-        y_c = y[mask].reshape((-1, 1))
+        y_c = y[mask]
 
         z_scaler = StandardScaler(with_std=True)
         y_scaler = StandardScaler(with_std=True)

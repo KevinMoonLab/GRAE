@@ -54,7 +54,7 @@ class Faces(BaseDataset):
         urllib.request.urlretrieve(self.url, os.path.join(self.root, 'face_data.mat'))
 
     def get_latents(self):
-        return np.vstack((self.y_1, self.y_2)).T
+        return np.vstack((self.y_1.flatten(), self.y_2.flatten())).T
 
 
 class UMIST(BaseDataset):

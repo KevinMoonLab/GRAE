@@ -64,7 +64,9 @@ DEFAULTS = {
     'GRAE': dict(),
     'SoftGRAE': dict(),
     'SGRAE': dict(),
-    'UMAP': dict()
+    'UMAP': dict(),
+    'EAERMargin': dict(),
+    'TopoAE': dict(),
 }
 
 DATASET_PARAMS = {
@@ -72,6 +74,8 @@ DATASET_PARAMS = {
     'GRAE': PHATE_dict,
     'SGRAE': PHATE_dict,
     'SoftGRAE': PHATE_dict,
-    'UMAP': UMAP_dict
+    'UMAP': UMAP_dict,
+    'EAERMargin': dict(),
+    'TopoAE': dict(),
 }
 

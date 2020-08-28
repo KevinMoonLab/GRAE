@@ -4,6 +4,8 @@ model_name = dict(Umap_t='UMAP',
                   diffusion_net='Diffusion Nets',
                   PHATE='PHATE',
                   TSNE='t-SNE',
+                  TopoAE='Topo. Autoencoder',
+                  EAERMargin='EAER-Margin',
                   AE='Autoencoder')
 
 base_name = dict(GRAE='GRAE (',
