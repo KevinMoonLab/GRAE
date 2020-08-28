@@ -11,7 +11,7 @@ GRADIENT = ["2F781E", "4D8418", "699010", "879C06", "A5A600", "B6A100", "C69B00"
             "D69400", "D87D00", "D96300", "D94300", "D70b0B"]
 
 
-def to_latex(id, split, model_list, dataset_list, digits=3):
+def to_latex(id, split, model_list, dataset_list, digits=4):
     path = os.path.join(
         os.path.dirname(__file__),
         os.path.join('..', '..', 'results', id)
@@ -52,16 +52,23 @@ def to_latex(id, split, model_list, dataset_list, digits=3):
     #          'reconstruction'
     #          ]]
 
-    df = df[['dataset', 'model', 'R2', 'reconstruction']]
+    metrics = ['R2', 'reconstruction']
+
+    if split == 'train':
+        keep = ['fit_time'] + metrics
+    else:
+        keep = metrics
+
+    df = df[['dataset', 'model'] + keep]
 
     # Provide order for models and datasets if needed
     df['model'] = pd.Categorical(df['model'], model_list)
     df['dataset'] = pd.Categorical(df['dataset'], dataset_list)
 
-
     # Mean or sd
     mean = df.groupby(['dataset', 'model']).mean()
     mean = mean.reset_index(level=[0, 1])
+    mean = mean.round(digits)
 
     if 'AE' in model_list:
         # Add relative comparison to AE reconstruction
@@ -74,17 +81,19 @@ def to_latex(id, split, model_list, dataset_list, digits=3):
 
         mean['rel_reconstruction'] -= 1
         mean['rel_reconstruction'] *= 100
+        mean['rel_reconstruction'] = mean['rel_reconstruction'].round(1)
 
-    mean = mean.round(digits)
+    if split == 'train':
+        mean['fit_time'] /= 60
+        mean['fit_time'] = mean['fit_time'].round(1)
 
     # Prettify column names
     mean['model'] = mean['model'].map(get_model_name)
     mean['dataset'] = mean['dataset'].map(get_dataset_name)
-    mean = mean.rename(columns=get_metrics_name)
 
     # Build rank dataframe
     # 2 means bold. 1 means bold + underline.
-    mean.set_index(['Dataset', 'Model'], inplace=True)
+    mean.set_index(['dataset', 'model'], inplace=True)
 
     df_rank = pd.DataFrame()
 
@@ -99,15 +108,21 @@ def to_latex(id, split, model_list, dataset_list, digits=3):
         rank = mean.groupby(level=[0])[m].rank(method='min', ascending=ascending)
         df_rank[m] = rank
 
-    # Add percentage to relative reconstruction
-    if 'AE' in model_list:
-        mean['Rel. MSE'].round(2)
+    mean.loc[:, metrics] = mean.loc[:, metrics].applymap(lambda x: ("{:." + str(digits) + "f}").format(x))
 
-    mean = mean.applymap(lambda x: ("{:." + str(digits) + "f}").format(x))
 
     # Add percentage to relative reconstruction
     if 'AE' in model_list:
-        mean['Rel. MSE'] += ' \%'
+        mean.loc[:, ['rel_reconstruction']] = mean.loc[:, ['rel_reconstruction']].applymap(
+            lambda x: ("{:." + str(1) + "f}").format(x))
+        mean['rel_reconstruction'] += ' \%'
+
+    if split == 'train':
+        mean.loc[:, ['fit_time']] = mean.loc[:, ['fit_time']].applymap(
+            lambda x: ("{:." + str(1) + "f}").format(x))
+
+    # Prettify column names
+    mean = mean.rename(columns=get_metrics_name)
 
     for i in range(mean.shape[0]):
         for j in range(mean.shape[1]):
@@ -126,7 +141,10 @@ def to_latex(id, split, model_list, dataset_list, digits=3):
 
             mean.iloc[i, j] = '\color[HTML]{' + gradient[rank - 1] + '}' + mean.iloc[i, j]
 
-    result = f'% {split} split\n' + (r'\resizebox{\textwidth}{!}{' + mean.to_latex(escape=False, multirow=True) + '}').replace('\cline{1-9}', '\hline\hline').replace('nan', 'n/a')
+    result = f'% {split} split\n' + (
+                r'\resizebox{\textwidth}{!}{' + mean.to_latex(escape=False, multirow=True) + '}').replace('\cline{1-9}',
+                                                                                                          '\hline\hline').replace(
+        'nan', 'n/a')
 
     with open(target_path, "w") as text_file:
         text_file.write(result)

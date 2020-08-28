@@ -93,7 +93,7 @@ def refine_df(df, df_metrics):
 #                'mutual_information_ICA_source_1', 'mutual_information_ICA_source_2',
 #                # 'mutual_information_slice_source_1', 'mutual_information_slice_source_2'
 # ]
-DIS_METRICS = ['R2', 'reconstruction']
+DIS_METRICS = ['fit_time', 'R2', 'reconstruction']
 
 
 def radial_regression(cartesian_emb, labels, angles):
@@ -237,6 +237,9 @@ def score(id, model_list, dataset_list):
 
                 metrics.update({'R2': np.mean(r2)})
                 metrics.update({'reconstruction': data[rec_key]})
+
+                fit_time = data['fit_time'] if split == 'train' else np.nan
+                metrics.update({'fit_time': fit_time})
 
                 book.add_entry(model=model, dataset=dataset, run=run_seed, split=split, **metrics)
 

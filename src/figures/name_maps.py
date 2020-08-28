@@ -43,6 +43,7 @@ metrics_name = dict(dataset='Dataset', model='Model',
                     dist_corr='Distance Corr.',
                     corr_source_patch='Patch Correlation',
                     corr_source_ICA_patch='Patch Correlation ICA',
+                    fit_time='Fit Time (min.)',
                     )
 
 for i in (5, 10, 20):
