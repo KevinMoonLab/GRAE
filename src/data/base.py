@@ -23,7 +23,7 @@ if not os.path.exists(BASEPATH):
 class NumpyDataset(Dataset):
     """Wrapper for x ndarray with no target."""
 
-    def __init__(self, x, y=None):
+    def __init__(self, x):
         self.data = torch.from_numpy(x).float()
 
     def __getitem__(self, index):
@@ -32,13 +32,19 @@ class NumpyDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def numpy(self):
+    def numpy(self, idx=None):
         n = len(self)
-        return self.data.numpy().reshape((n, -1))
+
+        data = self.data.numpy().reshape((n, -1))
+
+        if idx is None:
+            return data
+        else:
+            return data[idx]
 
 
 class BaseDataset(Dataset):
-    """All datasetse should subclass BaseDataset."""
+    """All datasets should subclass BaseDataset."""
 
     def __init__(self, x, y, split, split_ratio, seed, labels=None):
         if split not in ('train', 'test', 'none'):
@@ -49,6 +55,7 @@ class BaseDataset(Dataset):
 
         self.data = x.float()
         self.targets = y.float()
+        self.latents = None
 
     def __getitem__(self, index):
         return self.data[index], self.targets[index], index
@@ -56,9 +63,15 @@ class BaseDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def numpy(self):
+    def numpy(self, idx=None):
         n = len(self)
-        return self.data.numpy().reshape((n, -1)), self.targets.numpy().flatten()
+
+        data = self.data.numpy().reshape((n, -1))
+
+        if idx is None:
+            return data, self.targets
+        else:
+            return data[idx], self.targets[idx]
 
     def get_split(self, x, y, split, split_ratio, seed, labels=None):
         if split == 'none':
@@ -77,5 +90,25 @@ class BaseDataset(Dataset):
 
     def get_latents(self):
         # Return ndarray where columns are latent factors
-        return None
+        return self.latents
+
+    def subset(self, n):
+        # Subset self and return torch dataset
+        sample_mask = np.random.choice(len(self), n, replace=False)
+
+        if self.latents is not None:
+            latents = self.latents[sample_mask]
+        else:
+            latents = None
+        return TorchDataset(self.data[sample_mask], self.targets[sample_mask], latents)
+
+
+class TorchDataset(BaseDataset):
+    """Dataset class when splitting is not required and x and y are torch tensors."""
+
+    def __init__(self, x, y, latents):
+        self.data = x.float()
+        self.targets = y.float()
+        self.latents = latents
+
 

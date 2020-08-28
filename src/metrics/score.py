@@ -215,7 +215,8 @@ def score(id, model_list, dataset_list):
                 if dataset in ['Teapot', 'RotatedDigits', 'COIL100']:
                     r2 = radial_regression(z, *y.T)
                 elif dataset in ['UMIST']:
-                    labels, angles = y.T
+                    labels = y[:, 0]
+                    angles = y[:, 1:]
                     r2 = latent_regression(z, angles, labels=labels)
                 else:
                     r2 = latent_regression(z, y)

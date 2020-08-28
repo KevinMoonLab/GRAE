@@ -88,9 +88,7 @@ class Roll(BaseDataset):
 
         super().__init__(x, y, split, split_ratio, seed)
 
-    def get_latents(self):
-        # First source is coloring, second is the axis 1 (length of the roll)
-        return np.vstack((self.targets.numpy().flatten(), self.y_pure)).T
+        self.latents = np.vstack((self.targets.numpy().flatten(), self.y_pure)).T
 
 
 class SwissRoll(Roll):
@@ -105,7 +103,7 @@ class SwissRoll(Roll):
         super().__init__(n_samples, split, split_ratio=split_ratio, seed=seed,
                          factor=6, sli_points=sli_points)
 
-    def get_split(self, x, y, split, split_ratio, seed):
+    def get_split(self, x, y, split, split_ratio, seed, latents=None):
         if split == 'none':
             return torch.from_numpy(x), torch.from_numpy(y)
 

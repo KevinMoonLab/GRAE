@@ -38,12 +38,13 @@ class Faces(BaseDataset):
         super().__init__(x, y, split, split_ratio, seed)
 
         # Save y_1 and y_2 for coloring
-        self.y_2 = self.targets[:, 1].numpy()
-        self.y_1 = self.targets[:, 0].numpy()
+        y_2 = self.targets[:, 1].numpy()
+        y_1 = self.targets[:, 0].numpy()
 
         # Keep only one latent in the targets attribute for compatibility with
         # other datasets
         self.targets = self.targets[:, 0]
+        self.latents = np.vstack((y_1.flatten(), y_2.flatten())).T
 
         # Reshape dataset in image format
         if ALLOW_CONV:
@@ -52,9 +53,6 @@ class Faces(BaseDataset):
     def _download(self):
         print('Downloading Faces dataset...')
         urllib.request.urlretrieve(self.url, os.path.join(self.root, 'face_data.mat'))
-
-    def get_latents(self):
-        return np.vstack((self.y_1.flatten(), self.y_2.flatten())).T
 
 
 class UMIST(BaseDataset):
@@ -131,8 +129,6 @@ class UMIST(BaseDataset):
         print('Downloading UMIST dataset...')
         urllib.request.urlretrieve(self.url, os.path.join(self.root, 'UMIST.mat'))
 
-    def get_latents(self):
-        return self.latents
 
 class Teapot(BaseDataset):
     def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
@@ -154,6 +150,9 @@ class Teapot(BaseDataset):
 
         self.y = y
 
+        #  Return vector of 1 for compatibility with other rotations datasets (even if only 1 class here)
+        self.latents = np.vstack((np.ones(len(self)), self.targets.numpy().flatten() / (360/(2 * math.pi)))).T
+
         # Reshape dataset in image format
         if ALLOW_CONV:
             def vector_2_rgbimage(vector, h, w, c):
@@ -169,21 +168,12 @@ class Teapot(BaseDataset):
             new_data = [vector_2_rgbimage(vec.numpy(), 76, 101, 3) for vec in self.data]
             self.data = torch.from_numpy(np.concatenate(new_data))
 
-            # Test
-            # import matplotlib.pyplot as plt
-            # plt.imshow(self.data[0])
-            # plt.show()
-
             # Swap dimensions for pytorch conventions
             self.data = self.data.permute(0, 3, 1, 2)
 
     def _download(self):
         print('Downloading Teapot dataset')
         urllib.request.urlretrieve(self.url, os.path.join(self.root, 'teapot.mat'))
-
-    def get_latents(self):
-        """Return vector of 1 for compatibility with other rotations datasets (even if only 1 class here)."""
-        return np.vstack((np.ones(len(self)), self.targets.numpy().flatten() / (360/(2 * math.pi)))).T
 
 
 class Tracking(BaseDataset):
@@ -264,16 +254,15 @@ class Tracking(BaseDataset):
         else:
             self.data = self.data.permute(0, 3, 1, 2)
 
-        # Save y_1 and y_2 for coloring
-        self.y_1 = self.targets[:, 0].numpy()
-        self.y_2 = self.targets[:, 1].numpy()
+        # Save character coordinates as latents
+        y_1 = self.targets[:, 0].numpy()
+        y_2 = self.targets[:, 1].numpy()
+
+        self.latents = np.vstack((y_1, y_2)).T
 
         # Keep only one latent in the targets attribute for compatibility with
         # other datasets
         self.targets = self.targets[:, 0]
-
-    def get_latents(self):
-        return np.vstack((self.y_1, self.y_2)).T
 
 
 class Rotated(BaseDataset):
@@ -335,12 +324,11 @@ class Rotated(BaseDataset):
         super().__init__(inputs, targets, split, split_ratio, seed)
 
         # Split back angles and targets
-        self.angles = self.targets[:, 1]
+        angles = self.targets[:, 1]
         self.targets = self.targets[:, 0]
 
-    def get_latents(self):
-        """Class as first column and angles (in radians) as second column."""
-        return np.vstack((self.targets.numpy().flatten(), self.angles.numpy().flatten() / (360/(2 * math.pi)))).T
+        # Class as first column and angles (in radians) as second column.
+        self.latents = np.vstack((self.targets.numpy().flatten(), angles.numpy().flatten() / (360/(2 * math.pi)))).T
 
 
 class RotatedDigits(Rotated):
@@ -354,11 +342,6 @@ class RotatedDigits(Rotated):
 
         if ALLOW_CONV:
             self.data = self.data.view(-1, 1, 28, 28)
-
-            # Test
-            # import matplotlib.pyplot as plt
-            # plt.imshow(self.data[800][0], cmap='gray')
-            # plt.show()
 
 
 class COIL100(BaseDataset):
@@ -409,6 +392,3 @@ class COIL100(BaseDataset):
         np.save(os.path.join(self.root, 'x.npy'), x)
         np.save(os.path.join(self.root, 'y.npy'), y)
 
-
-    def get_latents(self):
-        return self.latents
