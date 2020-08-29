@@ -206,7 +206,7 @@ class AE(BaseModel):
 class GRAE(AE):
     """Standard GRAE class."""
 
-    def __init__(self, *, lam=10, drop_lam=.5, embedder=PHATE, embedder_args=dict(), max_grae=50000, **kwargs):
+    def __init__(self, *, lam=100, drop_lam=.5, embedder=PHATE, embedder_args=dict(), max_grae=50000, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.embedder = embedder(**embedder_args,

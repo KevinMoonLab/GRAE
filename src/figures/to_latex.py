@@ -85,7 +85,7 @@ def to_latex(id, split, model_list, dataset_list, digits=4):
 
     if split == 'train':
         mean['fit_time'] /= 60
-        mean['fit_time'] = mean['fit_time'].round(1)
+        mean['fit_time'] = mean['fit_time'].round(2)
 
     # Prettify column names
     mean['model'] = mean['model'].map(get_model_name)
@@ -101,7 +101,7 @@ def to_latex(id, split, model_list, dataset_list, digits=4):
         # Higher is better
         ascending = False
 
-        if m == 'MSE' or m == 'Rel. MSE' or m.split(' ')[0] == 'MRRE':
+        if m == 'reconstruction' or m == 'rel_reconstruction' or m == 'fit_time':
             # Lower is better
             ascending = True
 
@@ -119,11 +119,12 @@ def to_latex(id, split, model_list, dataset_list, digits=4):
 
     if split == 'train':
         mean.loc[:, ['fit_time']] = mean.loc[:, ['fit_time']].applymap(
-            lambda x: ("{:." + str(1) + "f}").format(x))
+            lambda x: ("{:." + str(2) + "f}").format(x))
 
     # Prettify column names
     mean = mean.rename(columns=get_metrics_name)
 
+    # Generate colored table
     for i in range(mean.shape[0]):
         for j in range(mean.shape[1]):
             if not np.isnan(df_rank.iloc[i, j]):

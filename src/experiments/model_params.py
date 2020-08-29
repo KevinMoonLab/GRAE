@@ -35,8 +35,8 @@ UMAP_dict = dict(  # Dataset specific arguments
     RotatedDigits=dict(n_neighbors=15),
     Tracking=dict(n_neighbors=15),
     Teapot=dict(n_neighbors=15),
-    Embryoid=dict(n_neighbors=15),
-    IPSC=dict(n_neighbors=15),
+    Embryoid=dict(n_neighbors=50),
+    IPSC=dict(n_neighbors=50),
     UMIST=dict(n_neighbors=15),
     COIL100=dict(n_neighbors=5),
 )
