@@ -122,9 +122,13 @@ class PHATE(phate.PHATE, BaseModel):
             if len(remaining_x) >= self.procrustes_batches_size:
                 new_points = remaining_x[:self.procrustes_batches_size, :]
                 remaining_x = np.delete(remaining_x,
-                                        np.arange(self.procrustes_batches_size))
+                                        np.arange(self.procrustes_batches_size), 
+                                        axis = 0)
             else:
                 new_points = remaining_x
+                remaining_x = np.delete(remaining_x, 
+                                        np.arange(len(remaining_x)),
+                                        axis = 0)
                 
             subsetx = np.vstack((lm_points, new_points))
             subset_embedding = super().fit_transform(subsetx)
