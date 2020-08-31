@@ -1,18 +1,23 @@
 """Model arguments for the main.py experiments."""
 # Some arg dicts that will be reused by various models
 # Default PHATE args
+
+DEFAULT_EPOCHS = 3   # First default for most datasets
+DEFAULT_EPOCHS_L = 1   # Second default for larger datasets
+
+epoch_dict = dict(  # Dataset specific arguments
+    SwissRoll=dict(epochs=DEFAULT_EPOCHS_L),
+    Faces=dict(epochs=DEFAULT_EPOCHS),
+    RotatedDigits=dict(epochs=DEFAULT_EPOCHS),
+    Tracking=dict(epochs=DEFAULT_EPOCHS),
+    Teapot=dict(epochs=DEFAULT_EPOCHS),
+    Embryoid=dict(epochs=DEFAULT_EPOCHS),
+    IPSC=dict(epochs=DEFAULT_EPOCHS_L),
+    UMIST=dict(epochs=DEFAULT_EPOCHS),
+    COIL100=dict(epochs=DEFAULT_EPOCHS),
+)
+
 PHATE_DEFAULTS = dict(verbose=0, n_jobs=-1)
-# PHATE_dict = dict(  # Dataset specific arguments
-#     SwissRoll=dict(knn=20, t=100),
-#     Faces=dict(knn=5, t=25),
-#     RotatedDigits=dict(knn=5, t=25),
-#     Tracking=dict(knn=15, t=100),
-#     Teapot=dict(knn=10, t=100),
-#     Embryoid=dict(knn=5, t=25),
-#     IPSC=dict(knn=15, t=250),
-#     UMIST=dict(knn=6, t=50),
-#     COIL100=dict(knn=3, t=100),
-# )
 
 PHATE_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(knn=20, t=50),
@@ -59,14 +64,15 @@ TSNE_dict = dict(  # Dataset specific arguments
 for key, d in PHATE_dict.items():
     d.update(PHATE_DEFAULTS)
     PHATE_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
+    PHATE_dict[key].update(epoch_dict[key])
 
 # for key, d in UMAP_dict.items():
 #     d.update(UMAP_DEFAULTS)
 #     UMAP_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
 
-for key, d in TSNE_dict.items():
-    d.update(TSNE_DEFAULTS)
-    TSNE_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
+# for key, d in TSNE_dict.items():
+#     d.update(TSNE_DEFAULTS)
+#     TSNE_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
 
 # Model parameters to use for experiments
 # Make sure the dict key matches the class name
@@ -81,11 +87,11 @@ DEFAULTS = {
 }
 
 DATASET_PARAMS = {
-    'AE': dict(),
+    'AE': epoch_dict,
     'GRAE': PHATE_dict,
     'SGRAE': PHATE_dict,
     'UMAP': UMAP_dict,
-    'EAERMargin': dict(),
-    'TopoAE': dict(),
+    'EAERMargin': epoch_dict,
+    'TopoAE': epoch_dict,
 }
 
