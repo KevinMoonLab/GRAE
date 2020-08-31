@@ -3,7 +3,7 @@
 # Default PHATE args
 
 DEFAULT_EPOCHS = 800   # First default for most datasets
-DEFAULT_EPOCHS_L = 200   # Second default for larger datasets
+DEFAULT_EPOCHS_L = DEFAULT_EPOCHS // 4   # Second default for larger datasets
 
 epoch_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(epochs=DEFAULT_EPOCHS_L),
@@ -82,7 +82,7 @@ DEFAULTS = {
     'GRAE': dict(),
     'SGRAE': dict(),
     'UMAP': dict(),
-    'EAERMargin': dict(),
+    'EAERMargin': dict(lr=0.001),
     'TopoAE': dict(),
 }
 

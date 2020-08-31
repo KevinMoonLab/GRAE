@@ -55,9 +55,14 @@ class EAERMargin(AE):
 
         self.knn_graph = nbrs.kneighbors_graph()
 
+        # Use whole dataset as batch, as in the paper
+        self.batch_size = len(x)
+
         super().fit(x)
 
     def apply_loss(self, x, x_hat, z, idx):
+        print(self.lr)
+        print(self.batch_size)
         if self.lam > 0:
             batch_d = compute_distance_matrix(z)
             is_nb = torch.from_numpy(self.knn_graph[np.ix_(idx, idx)].toarray()).to(device)
