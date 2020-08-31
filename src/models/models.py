@@ -237,6 +237,14 @@ class GRAE(AE):
 
 
     def apply_loss(self, x, x_hat, z, idx):
+        """Apply geometric loss and reconstruction loss.
+
+        :param x: Input batch.
+        :param x_hat: Reconstructed batch
+        :param z:  Embedded batch.
+        :param idx: Sample indices
+        :return:
+        """
         if self.lam > 0:
             loss = self.criterion(x, x_hat) + self.lam * self.criterion(z, self.z[idx])
         else:
@@ -245,6 +253,12 @@ class GRAE(AE):
         loss.backward()
 
     def end_epoch(self, epoch):
+        """Function called at the end of every training epoch.
+
+        :param epoch: Current epoch number.
+        :return:
+        """
+        # Current epoch
         pass
 
 
