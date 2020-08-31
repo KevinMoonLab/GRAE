@@ -85,8 +85,11 @@ class BaseModel:
 
 class PHATE(phate.PHATE, BaseModel):
     """Thin wrapper for PHATE to work with torch datasets."""
-    def __init__(self, threshold=50000, **kwargs):
+    def __init__(self, threshold=20000, procrustes_batches_size = 1000,
+                 procrustes_lm = 1000, **kwargs):
         self.threshold = threshold
+        self.procrustes_batches_size = procrustes_batches_size
+        self.procrustes_lm = procrustes_lm
         super().__init__(**kwargs)
 
     # def fit(self, X):
@@ -99,10 +102,43 @@ class PHATE(phate.PHATE, BaseModel):
         if x.shape[0] < self.threshold:
             result = super().fit_transform(x)
         else:
-            # Replace pass by the scalable version of PHATE and assign the result to the result variable
+            result = self.fit_transform_procrustes(x)
+            # Use procrustes method 
+            
+            
             pass
         return result
-
+    
+    def fit_transform_procrustes(self, x):
+        "each batch has procrustes_lm + procrustes_batches_size observations"
+        # select procrustes_lm from the dataset (we can use different approaches
+        # for now just a random selection from the data, we can shuffle it,
+        # before everything)    
+        lm_points = x[:self.procrustes_lm, :]
+        initial_embedding = super().fit_transform(lm_points)
+        result = initial_embedding
+        remaining_x = x[self.procrustes_lm:, :]
+        while len(remaining_x) != 0:
+            if len(remaining_x) >= self.procrustes_batches_size:
+                new_points = remaining_x[:self.procrustes_batches_size, :]
+                remaining_x = np.delete(remaining_x,
+                                        np.arange(self.procrustes_batches_size))
+            else:
+                new_points = remaining_x
+                
+            subsetx = np.vstack((lm_points, new_points))
+            subset_embedding = super().fit_transform(subsetx)
+            
+            d, Z, tform = procrustes(initial_embedding, 
+                                     subset_embedding[:self.procrustes_lm,:])
+            
+            subset_embedding_transformed = np.dot(
+                subset_embedding[self.procrustes_lm:, :], 
+                        tform['rotation']) + tform['translation']
+            
+            result = np.vstack((result, subset_embedding_transformed))
+         return result   
+         
     # def transform(self, X):
     #     x, _ = X.numpy()
     #     return super().transform(x)
@@ -262,4 +298,119 @@ class GRAE(AE):
         pass
 
 
+def procrustes(X, Y, scaling=True, reflection='best'):
+    
+    """
+    Taken from https://stackoverrun.com/es/q/5162566 adaptation of MATLAB to numpy
+    """
+    
+    """
+    A port of MATLAB's `procrustes` function to Numpy.
+
+    Procrustes analysis determines a linear transformation (translation,
+    reflection, orthogonal rotation and scaling) of the points in Y to best
+    conform them to the points in matrix X, using the sum of squared errors
+    as the goodness of fit criterion.
+
+        d, Z, [tform] = procrustes(X, Y)
+
+    Inputs:
+    ------------
+    X, Y    
+        matrices of target and input coordinates. they must have equal
+        numbers of  points (rows), but Y may have fewer dimensions
+        (columns) than X.
+
+    scaling 
+        if False, the scaling component of the transformation is forced
+        to 1
+
+    reflection
+        if 'best' (default), the transformation solution may or may not
+        include a reflection component, depending on which fits the data
+        best. setting reflection to True or False forces a solution with
+        reflection or no reflection respectively.
+
+    Outputs
+    ------------
+    d       
+        the residual sum of squared errors, normalized according to a
+        measure of the scale of X, ((X - X.mean(0))**2).sum()
+
+    Z
+        the matrix of transformed Y-values
+
+    tform   
+        a dict specifying the rotation, translation and scaling that
+        maps X --> Y
+
+    """
+
+    n,m = X.shape
+    ny,my = Y.shape
+
+    muX = X.mean(0)
+    muY = Y.mean(0)
+
+    X0 = X - muX
+    Y0 = Y - muY
+
+    ssX = (X0**2.).sum()
+    ssY = (Y0**2.).sum()
+
+    # centred Frobenius norm
+    normX = np.sqrt(ssX)
+    normY = np.sqrt(ssY)
+
+    # scale to equal (unit) norm
+    X0 /= normX
+    Y0 /= normY
+
+    if my < m:
+        Y0 = np.concatenate((Y0, np.zeros(n, m-my)),0)
+
+    # optimum rotation matrix of Y
+    A = np.dot(X0.T, Y0)
+    U,s,Vt = np.linalg.svd(A,full_matrices=False)
+    V = Vt.T
+    T = np.dot(V, U.T)
+
+    if reflection is not 'best':
+
+        # does the current solution use a reflection?
+        have_reflection = np.linalg.det(T) < 0
+
+        # if that's not what was specified, force another reflection
+        if reflection != have_reflection:
+            V[:,-1] *= -1
+            s[-1] *= -1
+            T = np.dot(V, U.T)
+
+    traceTA = s.sum()
+
+    if scaling:
+
+        # optimum scaling of Y
+        b = traceTA * normX / normY
+
+        # standarised distance between X and b*Y*T + c
+        d = 1 - traceTA**2
+
+        # transformed coords
+        Z = normX*traceTA*np.dot(Y0, T) + muX
+
+    else:
+        b = 1
+        d = 1 + ssY/ssX - 2 * traceTA * normY / normX
+        Z = normY*np.dot(Y0, T) + muX
+
+    # transformation matrix
+    if my < m:
+        T = T[:my,:]
+    c = muX - b*np.dot(muY, T)
+
+    #transformation values 
+    tform = {'rotation':T, 'scale':b, 'translation':c}
+
+    return d, Z, tform
 
