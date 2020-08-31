@@ -19,7 +19,7 @@ SEED = 42
 BATCH_SIZE = 128
 LR = .0001
 WEIGHT_DECAY = 1
-EPOCHS = 800
+EPOCHS = 200
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
 CONV_DIMS = [32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
@@ -38,8 +38,12 @@ class BaseModel:
     def transform(self, X):
         raise NotImplementedError()
 
-    def fit_plot(self, X, cmap='jet', s=1):
-        z = self.fit_transform(X)
+    def fit_plot(self, X, cmap='jet', s=1, fit=True):
+        if fit:
+            z = self.fit_transform(X)
+        else:
+            z = self.transform(X)
+
         y = X.targets.numpy()
 
         if z.shape[1] != 2:
@@ -81,19 +85,27 @@ class BaseModel:
 
 class PHATE(phate.PHATE, BaseModel):
     """Thin wrapper for PHATE to work with torch datasets."""
+    def __init__(self, threshold=50000, **kwargs):
+        self.threshold = threshold
+        super().__init__(**kwargs)
 
-    def fit(self, X):
-        x, _ = X.numpy()
-        super().fit(x)
+    # def fit(self, X):
+    #     x, _ = X.numpy()
+    #     super().fit(x)
 
     def fit_transform(self, X):
         x, _ = X.numpy()
-        super().fit(x)
-        return super().transform(x)
 
-    def transform(self, X):
-        x, _ = X.numpy()
-        return super().transform(x)
+        if x.shape[0] < self.threshold:
+            result = super().fit_transform(x)
+        else:
+            # Replace pass by the scalable version of PHATE and assign the result to the result variable
+            pass
+        return result
+
+    # def transform(self, X):
+    #     x, _ = X.numpy()
+    #     return super().transform(x)
 
 
 class AE(BaseModel):
@@ -206,43 +218,23 @@ class AE(BaseModel):
 class GRAE(AE):
     """Standard GRAE class."""
 
-    def __init__(self, *, lam=100, drop_lam=.5, embedder=PHATE, embedder_args=dict(), max_grae=50000, **kwargs):
+    def __init__(self, *, lam=100, embedder=PHATE, embedder_args=dict(), threshold=50000, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
+        self.lam_original = lam
         self.embedder = embedder(**embedder_args,
-                                 random_state=self.random_state, n_components=self.n_components)
+                                 random_state=self.random_state, n_components=self.n_components, threshold=threshold)
         self.z = None
-        self.drop_lam = int(drop_lam * self.epochs) if drop_lam is not None else self.epochs
-
-        # Max samples to embed. Model will fit embedded samples for drop_lam epochs and fit
-        # all samples using only reconstruction for the remaining epochs
-        self.max_grae = max_grae
 
     def fit(self, X):
-        if self.max_grae is not None and len(X) > self.max_grae:
-            # Subsample train set
-            print(f'        More than {self.max_grae} samples detected. Subsampling dataset for GRAE training')
-            grae_data = X.subset(self.max_grae)
-        else:
-            # Use all data
-            grae_data = X
-
         # Find manifold learning embedding
-        emb = scipy.stats.zscore(self.embedder.fit_transform(grae_data))
+        print('        Fitting PHATE...')
+        emb = scipy.stats.zscore(self.embedder.fit_transform(X))
         self.z = torch.from_numpy(emb).float().to(device)
 
-        # Fit on subset with geometric regularization
         print('        Fitting GRAE...')
-        super().fit(grae_data, epochs=self.drop_lam)
+        super().fit(X)
 
-        if self.drop_lam < self.epochs:
-            print('        Setting lambda to 0...')
-            if len(grae_data) < len(X):
-                print('        Training on whole dataset...')
-
-            # Fit on all dataset with no geometric regularization for remaining epochs
-            self.lam = 0
-            super().fit(X, epochs=self.epochs - self.drop_lam, epoch_offset=self.drop_lam)
 
     def apply_loss(self, x, x_hat, z, idx):
         if self.lam > 0:
@@ -252,51 +244,8 @@ class GRAE(AE):
 
         loss.backward()
 
-
-class SGRAE(AE):
-    """Siamese variant of GRAE."""
-
-    def __init__(self, *, lam=10, PHATE_args={}, drop_lam=None, **kwargs):
-        super().__init__(**kwargs)
-        self.dist_calculator = PHATE(**PHATE_args,
-                                     random_state=self.random_state, n_components=self.n_components)
-        self.a_mx = None
-        self.d_mx = None
-        self.lam = lam
-        self.drop_lam = drop_lam
-
-    def fit(self, X):
-        # Fit PHATE
-        self.dist_calculator.fit(X)
-
-        x, _ = X.numpy()
-
-        # Distance matrix based on potential distances
-        self.d_mx = torch.from_numpy(squareform(pdist(self.dist_calculator.diff_potential))).to(device)
-
-        super().fit(X)
-
-    def apply_loss(self, x, x_hat, z, idx):
-
-        if self.lam > 0:
-            half = x.shape[0] // 2
-
-            batch_1 = idx[:half]
-            batch_2 = idx[half:2 * half]
-
-            d_z = torch.norm(z[:half] - z[half:], p=2, dim=1)
-
-            d = (d_z - self.d_mx[batch_1, batch_2]) ** 2
-
-            geo_loss = torch.sum(d)
-
-            loss = self.criterion(x, x_hat) + self.lam * geo_loss
-        else:
-            loss = self.criterion(x, x_hat)
-
-        loss.backward()
-
     def end_epoch(self, epoch):
-        # Soft GRAE (turn off geometric loss after drop_lam epochs)
-        if self.drop_lam is not None and epoch == self.drop_lam - 1:
-            self.lam = 0
+        pass
+
+
+
