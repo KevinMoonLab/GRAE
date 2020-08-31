@@ -2,8 +2,8 @@
 # Some arg dicts that will be reused by various models
 # Default PHATE args
 
-DEFAULT_EPOCHS = 3   # First default for most datasets
-DEFAULT_EPOCHS_L = 1   # Second default for larger datasets
+DEFAULT_EPOCHS = 800   # First default for most datasets
+DEFAULT_EPOCHS_L = 200   # Second default for larger datasets
 
 epoch_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(epochs=DEFAULT_EPOCHS_L),
