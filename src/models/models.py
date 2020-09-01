@@ -23,6 +23,7 @@ EPOCHS = 200
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
 CONV_DIMS = [32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
+PROC_THRESHOLD = 2000  # Procrustes threshold
 
 
 class BaseModel:
@@ -85,7 +86,7 @@ class BaseModel:
 
 class PHATE(phate.PHATE, BaseModel):
     """Thin wrapper for PHATE to work with torch datasets."""
-    def __init__(self, threshold=20000, procrustes_batches_size = 1000,
+    def __init__(self, threshold=PROC_THRESHOLD, procrustes_batches_size=1000,
                  procrustes_lm = 1000, **kwargs):
         self.threshold = threshold
         self.procrustes_batches_size = procrustes_batches_size
@@ -102,6 +103,7 @@ class PHATE(phate.PHATE, BaseModel):
         if x.shape[0] < self.threshold:
             result = super().fit_transform(x)
         else:
+            print('            Fitting procrustes...')
             result = self.fit_transform_procrustes(x)
             # Use procrustes method 
             
@@ -116,7 +118,7 @@ class PHATE(phate.PHATE, BaseModel):
         # before everything)    
         lm_points = x[:self.procrustes_lm, :]
         initial_embedding = super().fit_transform(lm_points)
-        result = initial_embedding
+        result = [initial_embedding]
         remaining_x = x[self.procrustes_lm:, :]
         while len(remaining_x) != 0:
             if len(remaining_x) >= self.procrustes_batches_size:
@@ -140,8 +142,8 @@ class PHATE(phate.PHATE, BaseModel):
                 subset_embedding[self.procrustes_lm:, :], 
                         tform['rotation']) + tform['translation']
             
-            result = np.vstack((result, subset_embedding_transformed))
-        return result   
+            result.append(subset_embedding_transformed)
+        return np.vstack(result)
          
     # def transform(self, X):
     #     x, _ = X.numpy()
@@ -258,7 +260,7 @@ class AE(BaseModel):
 class GRAE(AE):
     """Standard GRAE class."""
 
-    def __init__(self, *, lam=100, embedder=PHATE, embedder_args=dict(), threshold=50000, **kwargs):
+    def __init__(self, *, lam=100, embedder=PHATE, embedder_args=dict(), threshold=PROC_THRESHOLD, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.lam_original = lam
@@ -268,11 +270,11 @@ class GRAE(AE):
 
     def fit(self, X):
         # Find manifold learning embedding
-        print('        Fitting PHATE...')
+        print('       Fitting PHATE...')
         emb = scipy.stats.zscore(self.embedder.fit_transform(X))
         self.z = torch.from_numpy(emb).float().to(device)
 
-        print('        Fitting GRAE...')
+        print('       Fitting GRAE...')
         super().fit(X)
 
 
@@ -383,7 +385,7 @@ def procrustes(X, Y, scaling=True, reflection='best'):
     V = Vt.T
     T = np.dot(V, U.T)
 
-    if reflection is not 'best':
+    if reflection != 'best':
 
         # does the current solution use a reflection?
         have_reflection = np.linalg.det(T) < 0
