@@ -8,6 +8,7 @@ from src.models.models import BaseModel, AE
 from src.models.topo import TopoAELoss, compute_distance_matrix
 from src.data.base import device
 
+from src.models import Diffusion as df 
 
 class UMAP(umap.UMAP, BaseModel):
     """Thin wrapper for UMAP to work with torch datasets."""
@@ -78,4 +79,53 @@ class EAERMargin(AE):
         else:
             loss = self.criterion(x, x_hat)
 
+        loss.backward()
+
+
+
+class DiffusionNet(AE): 
+    def __init__(self, *, lam=1, n_neighbors=10, **kwargs):
+        super().__init__(**kwargs)
+        self.lam = lam
+        self.n_neighbors = n_neighbors
+    
+    
+    def fit(self, x):
+        x_np, _ = x.numpy()
+
+        K_mat = df.ComputeLBAffinity(x_np, self.n_neighbors, sig=0.1)   # Laplace-Beltrami affinity: D^-1 * K * D^-1
+        self.P  = torch.from_numpy(df.makeRowStoch(K_mat)).to(device)                     # markov matrix 
+        Evectors, Evalues = df.Diffusion(K_mat, 
+                                                    nEigenVals = self.n_components+1)  # eigenvalues and eigenvectors
+        
+        self.Evectors = torch.from_numpy(Evectors).to(device)
+        self.Evalues = torch.from_numpy(Evalues).to(device)
+        # Use whole dataset as batch, as in the paper
+        self.batch_size = len(x)
+        self.z = torch.matmul(self.Evectors, torch.diag(self.Evalues)).to(device)
+        super().fit(x)
+        
+        
+
+    def apply_loss(self, x, x_hat, z, idx):
+        print(self.lr)
+        print(self.batch_size)
+        I_t = torch.eye(self.batch_size).to(device)
+        if self.lam > 0:
+            
+
+            loss = self.criterion(x, x_hat) \
+                + self.lam * self.criterion(z, self.z[idx]) \
+                    + self.lam * torch.mean(torch.pow(torch.matmul((self.P - self.Evalues[0]*
+                                               I_t),
+                                              self.z[idx][:,0]),2)) \
+                    + self.lam * torch.mean(torch.pow(torch.matmul((self.P - self.Evalues[1]*
+                                               I_t),
+                                              self.z[idx][:,1]),2))
+            
+        else:
+            loss = self.criterion(x, x_hat)
+            
+        
+        
         loss.backward()

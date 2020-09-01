@@ -141,7 +141,7 @@ class PHATE(phate.PHATE, BaseModel):
                         tform['rotation']) + tform['translation']
             
             result = np.vstack((result, subset_embedding_transformed))
-         return result   
+        return result   
          
     # def transform(self, X):
     #     x, _ = X.numpy()
