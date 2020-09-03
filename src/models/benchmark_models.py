@@ -3,12 +3,14 @@ import torch
 import umap
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
+import scipy
 
 from src.models.models import BaseModel, AE
 from src.models.topo import TopoAELoss, compute_distance_matrix
 from src.data.base import device
 
 from src.models import Diffusion as df 
+from pydiffmap import diffusion_map as dm
 
 class UMAP(umap.UMAP, BaseModel):
     """Thin wrapper for UMAP to work with torch datasets."""
@@ -84,25 +86,54 @@ class EAERMargin(AE):
 
 
 class DiffusionNet(AE): 
-    def __init__(self, *, lam=1, n_neighbors=10, **kwargs):
+    def __init__(self, *, lam=1, n_neighbors=100, alpha = 0, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.n_neighbors = n_neighbors
-    
+        self.alpha = alpha
     
     def fit(self, x):
         x_np, _ = x.numpy()
 
-        K_mat = df.ComputeLBAffinity(x_np, self.n_neighbors, sig=0.1)   # Laplace-Beltrami affinity: D^-1 * K * D^-1
-        self.P  = torch.from_numpy(df.makeRowStoch(K_mat)).to(device)                     # markov matrix 
-        Evectors, Evalues = df.Diffusion(K_mat, 
-                                                    nEigenVals = self.n_components+1)  # eigenvalues and eigenvectors
+        # K_mat = df.ComputeLBAffinity(x_np, self.n_neighbors, sig=0.1)   # Laplace-Beltrami affinity: D^-1 * K * D^-1
+        # self.P  = torch.from_numpy(df.makeRowStoch(K_mat)).to(device)                     # markov matrix 
+        # Evectors, Evalues = df.Diffusion(K_mat, 
+        #                                             nEigenVals = self.n_components+1)  # eigenvalues and eigenvectors
         
-        self.Evectors = torch.from_numpy(Evectors).to(device)
-        self.Evalues = torch.from_numpy(Evalues).to(device)
+        neighbor_params = {'n_jobs': -1, 'algorithm': 'ball_tree'}
+        mydmap = dm.DiffusionMap.from_sklearn(n_evecs = self.n_components,
+                                              alpha = self.alpha,
+                                              epsilon = 'bgh',
+                                              k = self.n_neighbors,
+                                              neighbor_params = neighbor_params)
+        dmap = mydmap.fit_transform(x_np)
+        self.z = torch.tensor(dmap).float().to(device)
+        
+        print(self.z)
+        
+        self.Evectors = torch.from_numpy(mydmap.evecs).float().to(device)
+        self.Evalues = torch.from_numpy(mydmap.evals).float().to(device)
+        
         # Use whole dataset as batch, as in the paper
         self.batch_size = len(x)
-        self.z = torch.matmul(self.Evectors, torch.diag(self.Evalues)).to(device)
+        
+        # Potential matrix sparse form
+        P = scipy.sparse.coo_matrix(mydmap.L.todense())
+        values = P.data
+        indices = np.vstack((P.row, P.col))
+        i = torch.LongTensor(indices)
+        v = torch.FloatTensor(values)
+        
+        self.P =  torch.sparse.FloatTensor(i, v).float().to(device)
+        
+        # Identity matrix sparse 
+        I_n = scipy.sparse.coo_matrix(np.eye(self.batch_size))
+        values = I_n.data
+        indices = np.vstack((I_n.row, I_n.col))  
+        i = torch.LongTensor(indices)
+        v = torch.FloatTensor(values)
+        
+        self.I_t = torch.sparse.FloatTensor(i, v).float().to(device)
         super().fit(x)
         
         
@@ -110,20 +141,23 @@ class DiffusionNet(AE):
     def apply_loss(self, x, x_hat, z, idx):
         print(self.lr)
         print(self.batch_size)
-        I_t = torch.eye(self.batch_size).to(device)
         if self.lam > 0:
             
-
-            loss = self.criterion(x, x_hat) \
-                + self.lam * self.criterion(z, self.z[idx]) \
-                    + self.lam * torch.mean(torch.pow(torch.matmul((self.P - self.Evalues[0]*
-                                               I_t),
-                                              self.z[idx][:,0]),2)) \
-                    + self.lam * torch.mean(torch.pow(torch.matmul((self.P - self.Evalues[1]*
-                                               I_t),
-                                              self.z[idx][:,1]),2))
+            rec_loss = self.criterion(x, x_hat)
+            coord_loss = self.lam * self.criterion(z, self.z[idx]) 
+            Ev_loss = 10000000*(self.lam * torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[0]*
+                                               self.I_t.to_dense()),
+                                              self.z[idx][:,0].view(self.batch_size,1)),2))  +  self.lam * torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[1]*
+                                               self.I_t.to_dense()),
+                                              self.z[idx][:,1].view(self.batch_size,1)),2)))
             
+    
+            loss =  0*rec_loss + coord_loss + Ev_loss
+            print(rec_loss)
+            print(coord_loss)
+            print(Ev_loss)
         else:
+            
             loss = self.criterion(x, x_hat)
             
         
