@@ -80,6 +80,8 @@ for key, d in PHATE_dict.items():
 DEFAULTS = {
     'AE': dict(),
     'GRAE': dict(),
+    'SmallGRAE': dict(),
+    'LargeGRAE': dict(),
     'SGRAE': dict(),
     'UMAP': dict(),
     'EAERMargin': dict(lr=0.001),
@@ -89,6 +91,8 @@ DEFAULTS = {
 DATASET_PARAMS = {
     'AE': epoch_dict,
     'GRAE': PHATE_dict,
+    'SmallGRAE': PHATE_dict,
+    'LargeGRAE': PHATE_dict,
     'SGRAE': PHATE_dict,
     'UMAP': UMAP_dict,
     'EAERMargin': epoch_dict,

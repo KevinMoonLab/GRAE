@@ -260,13 +260,14 @@ class AE(BaseModel):
 class GRAE(AE):
     """Standard GRAE class."""
 
-    def __init__(self, *, lam=100, embedder=PHATE, embedder_args=dict(), threshold=PROC_THRESHOLD, **kwargs):
+    def __init__(self, *, lam=100, embedder=PHATE, embedder_args=dict(), threshold=PROC_THRESHOLD, relax=True, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.lam_original = lam
         self.embedder = embedder(**embedder_args,
                                  random_state=self.random_state, n_components=self.n_components, threshold=threshold)
         self.z = None
+        self.relax = relax
 
     def fit(self, X):
         # Find manifold learning embedding
@@ -300,12 +301,30 @@ class GRAE(AE):
         :param epoch: Current epoch number.
         :return:
         """
-        # Current epoch
-        # Update lambda
-        self.lam = (-self.epochs*np.exp((epoch - (self.epochs/2))*0.2))/(1+np.exp((epoch - (self.epochs/2))*0.2)) \
-            +  self.lam_original
-        
-        pass
+        if self.relax:
+            # Current epoch
+            # Update lambda
+            self.lam = (-self.epochs*np.exp((epoch - (self.epochs/2))*0.2))/(1+np.exp((epoch - (self.epochs/2))*0.2)) \
+                +  self.lam_original
+
+
+class SmallGRAE(GRAE):
+    def __init__(self, *, embedder_args=dict(), threshold=PROC_THRESHOLD, **kwargs):
+        super().__init__(lam=.1,
+                         embedder=PHATE,
+                         embedder_args=embedder_args,
+                         threshold=threshold,
+                         relax=False,
+                         **kwargs)
+
+class LargeGRAE(GRAE):
+    def __init__(self, *, embedder_args=dict(), threshold=PROC_THRESHOLD, **kwargs):
+        super().__init__(lam=100,
+                         embedder=PHATE,
+                         embedder_args=embedder_args,
+                         threshold=threshold,
+                         relax=False,
+                         **kwargs)
 
 
 def procrustes(X, Y, scaling=True, reflection='best'):

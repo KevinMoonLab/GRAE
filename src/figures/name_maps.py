@@ -5,6 +5,9 @@ model_name = dict(UMAP='UMAP',
                   TSNE='t-SNE',
                   TopoAE='TAE',
                   EAERMargin='EAER-Margin',
+                  SmallGRAE='λ = 0.1',
+                  LargeGRAE='λ = 100',
+                  # GRAE='λ = 100 (Relaxed)',
                   AE='Autoencoder')
 
 base_name = dict(GRAE='GRAE',
