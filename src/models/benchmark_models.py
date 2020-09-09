@@ -11,6 +11,8 @@ from src.data.base import device
 
 from src.models import Diffusion as df 
 from pydiffmap import diffusion_map as dm
+from sklearn.manifold import SpectralEmbedding
+from sklearn.neighbors import kneighbors_graph
 
 class UMAP(umap.UMAP, BaseModel):
     """Thin wrapper for UMAP to work with torch datasets."""
@@ -152,7 +154,7 @@ class DiffusionNet(AE):
                                               self.z[idx][:,1].view(self.batch_size,1)),2)))
             
     
-            loss =  0*rec_loss + coord_loss + Ev_loss
+            loss =  rec_loss + coord_loss + Ev_loss
             print(rec_loss)
             print(coord_loss)
             print(Ev_loss)
@@ -163,3 +165,54 @@ class DiffusionNet(AE):
         
         
         loss.backward()
+        
+        
+class LaplacianAE(AE): 
+    def __init__(self, *, lam=1, n_neighbors=100, alpha = 0, **kwargs):
+        super().__init__(**kwargs)
+        self.lam = lam
+        self.n_neighbors = n_neighbors
+        self.alpha = alpha
+    
+    def fit(self, x):
+        x_np, _ = x.numpy()
+
+        D = kneighbors_graph(x_np, mode='distance',
+                             n_neighbors = self.n_neighbors)
+        
+        W = np.multiply(np.exp(-D.todense()/1), D.todense()!=0)
+        # W = scipy.sparse.csr_matrix(W)
+               
+        self.W = torch.tensor(W).float().to(device)
+        
+        # Use whole dataset as batch, as in the paper
+        self.batch_size = len(x)   
+        super().fit(x)
+        
+    def coord_loss(self, z):
+        e = torch.pow(compute_distance_matrix(z), 2)
+        print(e.shape)
+        L = torch.mul(self.W, e)
+        print(L.shape)
+        return torch.sum(L)
+        
+        
+
+    def apply_loss(self, x, x_hat, z, idx):
+
+        if self.lam > 0:
+            
+            rec_loss = self.criterion(x, x_hat)
+            print(rec_loss)
+    
+            loss =  0*rec_loss + self.coord_loss(z) 
+            print(loss)
+            
+        else:
+        
+            loss = self.criterion(x, x_hat)
+            
+        
+        
+        loss.backward()        
+        
