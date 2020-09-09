@@ -3,7 +3,7 @@ model_name = dict(UMAP='UMAP',
                   diffusion_net='Diffusion Nets',
                   PHATE='PHATE',
                   TSNE='t-SNE',
-                  TopoAE='Topo. Autoencoder',
+                  TopoAE='TAE',
                   EAERMargin='EAER-Margin',
                   AE='Autoencoder')
 
