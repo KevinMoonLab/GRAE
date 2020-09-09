@@ -33,7 +33,8 @@ PHATE_dict = dict(  # Dataset specific arguments
 
 
 # UMAP neighbors
-UMAP_DEFAULTS = dict()
+UMAP_DEFAULTS = dict(min_dist=.3)
+
 UMAP_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(n_neighbors=20),
     Faces=dict(n_neighbors=15),
@@ -66,9 +67,11 @@ for key, d in PHATE_dict.items():
     PHATE_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
     PHATE_dict[key].update(epoch_dict[key])
 
-# for key, d in UMAP_dict.items():
-#     d.update(UMAP_DEFAULTS)
-#     UMAP_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
+GRAEUMAP_dict = dict()
+
+for key, d in UMAP_dict.items():
+    d.update(UMAP_DEFAULTS)
+    GRAEUMAP_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
 
 # for key, d in TSNE_dict.items():
 #     d.update(TSNE_DEFAULTS)
@@ -84,6 +87,7 @@ DEFAULTS = {
     'LargeGRAE': dict(),
     'SGRAE': dict(),
     'UMAP': dict(),
+    'GRAEUMAP' : dict(),
     'EAERMargin': dict(lr=0.001),
     'TopoAE': dict(),
 }
@@ -95,6 +99,7 @@ DATASET_PARAMS = {
     'LargeGRAE': PHATE_dict,
     'SGRAE': PHATE_dict,
     'UMAP': UMAP_dict,
+    'GRAEUMAP' : GRAEUMAP_dict,
     'EAERMargin': epoch_dict,
     'TopoAE': epoch_dict,
 }

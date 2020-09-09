@@ -5,14 +5,15 @@ from sklearn.neighbors import NearestNeighbors
 import numpy as np
 import scipy
 
-from src.models.models import BaseModel, AE
+from src.models.models import BaseModel, AE, GRAE
 from src.models.topo import TopoAELoss, compute_distance_matrix
 from src.data.base import device
 
-from src.models import Diffusion as df 
+from src.models import Diffusion as df
 from pydiffmap import diffusion_map as dm
 from sklearn.manifold import SpectralEmbedding
 from sklearn.neighbors import kneighbors_graph
+
 
 class UMAP(umap.UMAP, BaseModel):
     """Thin wrapper for UMAP to work with torch datasets."""
@@ -32,6 +33,14 @@ class UMAP(umap.UMAP, BaseModel):
 
     def reconstruct(self, X):
         return self.inverse_transform(self.transform(X))
+
+class GRAEUMAP(GRAE):
+    def __init__(self, *, lam=100, embedder_args=dict(), **kwargs):
+        super().__init__(lam=lam,
+                         embedder=UMAP,
+                         embedder_args=embedder_args,
+                         relax=True,
+                         **kwargs)
 
 class TopoAE(AE):
     """AE with topological loss. See topo.py"""
@@ -86,14 +95,13 @@ class EAERMargin(AE):
         loss.backward()
 
 
-
-class DiffusionNet(AE): 
-    def __init__(self, *, lam=1, n_neighbors=100, alpha = 0, **kwargs):
+class DiffusionNet(AE):
+    def __init__(self, *, lam=1, n_neighbors=100, alpha=0, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.n_neighbors = n_neighbors
         self.alpha = alpha
-    
+
     def fit(self, x):
         x_np, _ = x.numpy()
 
@@ -101,118 +109,112 @@ class DiffusionNet(AE):
         # self.P  = torch.from_numpy(df.makeRowStoch(K_mat)).to(device)                     # markov matrix 
         # Evectors, Evalues = df.Diffusion(K_mat, 
         #                                             nEigenVals = self.n_components+1)  # eigenvalues and eigenvectors
-        
+
         neighbor_params = {'n_jobs': -1, 'algorithm': 'ball_tree'}
-        mydmap = dm.DiffusionMap.from_sklearn(n_evecs = self.n_components,
-                                              alpha = self.alpha,
-                                              epsilon = 'bgh',
-                                              k = self.n_neighbors,
-                                              neighbor_params = neighbor_params)
+        mydmap = dm.DiffusionMap.from_sklearn(n_evecs=self.n_components,
+                                              alpha=self.alpha,
+                                              epsilon='bgh',
+                                              k=self.n_neighbors,
+                                              neighbor_params=neighbor_params)
         dmap = mydmap.fit_transform(x_np)
         self.z = torch.tensor(dmap).float().to(device)
-        
+
         print(self.z)
-        
+
         self.Evectors = torch.from_numpy(mydmap.evecs).float().to(device)
         self.Evalues = torch.from_numpy(mydmap.evals).float().to(device)
-        
+
         # Use whole dataset as batch, as in the paper
         self.batch_size = len(x)
-        
+
         # Potential matrix sparse form
         P = scipy.sparse.coo_matrix(mydmap.L.todense())
         values = P.data
         indices = np.vstack((P.row, P.col))
         i = torch.LongTensor(indices)
         v = torch.FloatTensor(values)
-        
-        self.P =  torch.sparse.FloatTensor(i, v).float().to(device)
-        
+
+        self.P = torch.sparse.FloatTensor(i, v).float().to(device)
+
         # Identity matrix sparse 
         I_n = scipy.sparse.coo_matrix(np.eye(self.batch_size))
         values = I_n.data
-        indices = np.vstack((I_n.row, I_n.col))  
+        indices = np.vstack((I_n.row, I_n.col))
         i = torch.LongTensor(indices)
         v = torch.FloatTensor(values)
-        
+
         self.I_t = torch.sparse.FloatTensor(i, v).float().to(device)
         super().fit(x)
-        
-        
 
     def apply_loss(self, x, x_hat, z, idx):
         print(self.lr)
         print(self.batch_size)
         if self.lam > 0:
-            
+
             rec_loss = self.criterion(x, x_hat)
-            coord_loss = self.lam * self.criterion(z, self.z[idx]) 
-            Ev_loss = 10000000*(self.lam * torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[0]*
-                                               self.I_t.to_dense()),
-                                              self.z[idx][:,0].view(self.batch_size,1)),2))  +  self.lam * torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[1]*
-                                               self.I_t.to_dense()),
-                                              self.z[idx][:,1].view(self.batch_size,1)),2)))
-            
-    
-            loss =  rec_loss + coord_loss + Ev_loss
+            coord_loss = self.lam * self.criterion(z, self.z[idx])
+            Ev_loss = 10000000 * (self.lam * torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[0] *
+                                                                            self.I_t.to_dense()),
+                                                                           self.z[idx][:, 0].view(self.batch_size, 1)),
+                                                                  2)) + self.lam * torch.mean(
+                torch.pow(torch.mm((self.P.to_dense() - self.Evalues[1] *
+                                    self.I_t.to_dense()),
+                                   self.z[idx][:, 1].view(self.batch_size, 1)), 2)))
+
+            loss = rec_loss + coord_loss + Ev_loss
             print(rec_loss)
             print(coord_loss)
             print(Ev_loss)
         else:
-            
+
             loss = self.criterion(x, x_hat)
-            
-        
-        
+
         loss.backward()
-        
-        
-class LaplacianAE(AE): 
-    def __init__(self, *, lam=1, n_neighbors=100, alpha = 0, **kwargs):
+
+
+class LaplacianAE(AE):
+    def __init__(self, *, lam=1, n_neighbors=100, alpha=0, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.n_neighbors = n_neighbors
         self.alpha = alpha
-    
+
     def fit(self, x):
         x_np, _ = x.numpy()
 
         D = kneighbors_graph(x_np, mode='distance',
-                             n_neighbors = self.n_neighbors)
-        
-        W = np.multiply(np.exp(-D.todense()/1), D.todense()!=0)
+                             n_neighbors=self.n_neighbors)
+
+        W = np.multiply(np.exp(-D.toarray() / 1), D.toarray() != 0)
         # W = scipy.sparse.csr_matrix(W)
-               
+
         self.W = torch.tensor(W).float().to(device)
-        
+
         # Use whole dataset as batch, as in the paper
-        self.batch_size = len(x)   
+        self.batch_size = len(x)
         super().fit(x)
-        
+
     def coord_loss(self, z):
         e = torch.pow(compute_distance_matrix(z), 2)
-        print(e.shape)
+        # print(e.shape)
         L = torch.mul(self.W, e)
-        print(L.shape)
+        # print(L.shape)
         return torch.sum(L)
-        
-        
 
     def apply_loss(self, x, x_hat, z, idx):
 
         if self.lam > 0:
-            
+
             rec_loss = self.criterion(x, x_hat)
-            print(rec_loss)
-    
-            loss =  0*rec_loss + self.coord_loss(z) 
-            print(loss)
-            
+            print('Reconstruction')
+            print(rec_loss.item())
+
+            loss = 0 * rec_loss + 1e6 * self.coord_loss(z)
+            print('Total loss')
+            print(loss.item())
+
         else:
-        
+
             loss = self.criterion(x, x_hat)
-            
-        
-        
-        loss.backward()        
-        
+
+        loss.backward()

@@ -260,18 +260,19 @@ class AE(BaseModel):
 class GRAE(AE):
     """Standard GRAE class."""
 
-    def __init__(self, *, lam=100, embedder=PHATE, embedder_args=dict(), threshold=PROC_THRESHOLD, relax=True, **kwargs):
+    def __init__(self, *, lam=100, embedder=PHATE, embedder_args=dict(), relax=True, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.lam_original = lam
+
         self.embedder = embedder(**embedder_args,
-                                 random_state=self.random_state, n_components=self.n_components, threshold=threshold)
+                                 random_state=self.random_state, n_components=self.n_components)
         self.z = None
         self.relax = relax
 
     def fit(self, X):
         # Find manifold learning embedding
-        print('       Fitting PHATE...')
+        print('       Fitting embedding...')
         emb = scipy.stats.zscore(self.embedder.fit_transform(X))
         self.z = torch.from_numpy(emb).float().to(device)
 
@@ -325,6 +326,8 @@ class LargeGRAE(GRAE):
                          threshold=threshold,
                          relax=False,
                          **kwargs)
+
+
 
 
 def procrustes(X, Y, scaling=True, reflection='best'):
