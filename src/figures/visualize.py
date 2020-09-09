@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 
 import src.data
-from src.figures.name_maps import get_model_name
+from src.figures.name_maps import get_model_name, get_dataset_name
 from src.figures.utils import load_dict
 
 # Plot embeddings
@@ -59,8 +59,18 @@ def grid_plot(id, model_list, dataset_list, run):
 
             if i == 0:
                 ax_i.set_title(f'{titles[j]}', fontsize=20, color='black')
+
+            if j == 0:
+                ax_i.set_ylabel(get_dataset_name(dataset), fontsize=20, color='black')
+
             ax_i.set_xticks([])
             ax_i.set_yticks([])
 
-    plt.savefig(os.path.join(path, f'plot_{run}.png'))
+    # plt.gca().set_axis_off()
+    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=.075, wspace=.075)
+    # plt.margins(0, 0)
+    # plt.gca().xaxis.set_major_locator(plt.NullLocator())
+    # plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+    plt.savefig(os.path.join(path, f'plot_{run}.png'), bbox_inches='tight', pad_inches=0.035)
     plt.show()
