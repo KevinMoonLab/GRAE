@@ -1,10 +1,12 @@
 """Model arguments for the main.py experiments."""
 # Some arg dicts that will be reused by various models
 # Default PHATE args
+import copy
 
 DEFAULT_EPOCHS = 800   # First default for most datasets
 DEFAULT_EPOCHS_L = DEFAULT_EPOCHS // 4   # Second default for larger datasets
 
+# Epoch dict used by all AE-based models
 epoch_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(epochs=DEFAULT_EPOCHS_L),
     Faces=dict(epochs=DEFAULT_EPOCHS),
@@ -17,6 +19,7 @@ epoch_dict = dict(  # Dataset specific arguments
     COIL100=dict(epochs=DEFAULT_EPOCHS),
 )
 
+# PHATE parameters for GRAE
 PHATE_DEFAULTS = dict(verbose=0, n_jobs=-1)
 
 PHATE_dict = dict(  # Dataset specific arguments
@@ -31,9 +34,14 @@ PHATE_dict = dict(  # Dataset specific arguments
     COIL100=dict(knn=5, t=50),
 )
 
+for key, d in PHATE_dict.items():
+    # Merge dicts and update with epochs
+    d.update(PHATE_DEFAULTS)
+    PHATE_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
+    PHATE_dict[key].update(epoch_dict[key])
 
-# UMAP neighbors
-UMAP_DEFAULTS = dict(min_dist=.3)
+# UMAP parameters
+UMAP_DEFAULTS = dict(min_dist=.1)
 
 UMAP_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(n_neighbors=20),
@@ -47,35 +55,50 @@ UMAP_dict = dict(  # Dataset specific arguments
     COIL100=dict(n_neighbors=5),
 )
 
-# TSNE perplexity
-TSNE_DEFAULTS = dict()
-TSNE_dict = dict(  # Dataset specific arguments
-    SwissRoll=dict(perplexity=30),
-    Faces=dict(perplexity=10),
-    RotatedDigits=dict(perplexity=10),
-    Tracking=dict(perplexity=10),
-    Teapot=dict(perplexity=10),
-    Embryoid=dict(perplexity=10),
-    IPSC=dict(perplexity=10),
-    UMIST=dict(perplexity=10),
-    COIL100=dict(perplexity=10),
-)
-
-# Add defaults to dataset specific dicts
-for key, d in PHATE_dict.items():
-    d.update(PHATE_DEFAULTS)
-    PHATE_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
-    PHATE_dict[key].update(epoch_dict[key])
-
 GRAEUMAP_dict = dict()
 
 for key, d in UMAP_dict.items():
+    # Merge defaults and specific and update with epochs
     d.update(UMAP_DEFAULTS)
     GRAEUMAP_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
+    GRAEUMAP_dict[key].update(epoch_dict[key])
 
-# for key, d in TSNE_dict.items():
-#     d.update(TSNE_DEFAULTS)
-#     TSNE_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
+
+# Dict for Diffusion net and EAER subsampling
+subsample_dict = dict(
+    SwissRoll=dict(subsample=None),
+    Faces=dict(subsample=None),
+    RotatedDigits=dict(subsample=None),
+    Tracking=dict(subsample=None),  # 725
+    Teapot=dict(subsample=290),
+    Embryoid=dict(subsample=None),
+    IPSC=dict(subsample=None),
+    UMIST=dict(subsample=None),  # 250
+    COIL100=dict(subsample=None),
+)
+
+# Diffusion Nets
+DN_dict = dict(  # Dataset specific arguments
+    SwissRoll=dict(n_neighbors=100),
+    Faces=dict(n_neighbors=15),
+    RotatedDigits=dict(n_neighbors=10, epsilon=3),
+    Tracking=dict(n_neighbors=10),
+    Teapot=dict(n_neighbors=15),
+    Embryoid=dict(n_neighbors=100),
+    IPSC=dict(n_neighbors=100),
+    UMIST=dict(n_neighbors=10),
+    COIL100=dict(n_neighbors=100),
+)
+
+for key, d in DN_dict.items():
+    DN_dict[key].update(subsample_dict[key])
+    DN_dict[key].update(epoch_dict[key])
+
+# Create dict with epochs and subsample values for EAER
+EAER_dict = copy.deepcopy(epoch_dict)
+
+for key, d in EAER_dict.items():
+    d.update(subsample_dict[key])
 
 # Model parameters to use for experiments
 # Make sure the dict key matches the class name
@@ -88,7 +111,8 @@ DEFAULTS = {
     'SGRAE': dict(),
     'UMAP': dict(),
     'GRAEUMAP' : dict(),
-    'EAERMargin': dict(lr=0.001),
+    'DiffusionNet': dict(),
+    'EAERMargin': dict(),
     'TopoAE': dict(),
 }
 
@@ -100,7 +124,8 @@ DATASET_PARAMS = {
     'SGRAE': PHATE_dict,
     'UMAP': UMAP_dict,
     'GRAEUMAP' : GRAEUMAP_dict,
-    'EAERMargin': epoch_dict,
+    'DiffusionNet': DN_dict,
+    'EAERMargin': EAER_dict,
     'TopoAE': epoch_dict,
 }
 

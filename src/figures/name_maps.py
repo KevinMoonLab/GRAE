@@ -8,8 +8,10 @@ model_name = dict(UMAP='UMAP',
                   GRAEUMAP='GRAE (UMAP)',
                   SmallGRAE='λ = 0.1',
                   LargeGRAE='λ = 100',
+                  DiffusionNet='Diffusion Nets',
+                  GRAE='GRAE',
                   # GRAE='λ = 100 (Relaxed)',
-                  AE='Autoencoder')
+                  AE='AE')
 
 base_name = dict(GRAE='GRAE',
                  GRAE_TSNE='GRAE t-SNE',

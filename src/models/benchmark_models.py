@@ -96,13 +96,22 @@ class EAERMargin(AE):
 
 
 class DiffusionNet(AE):
-    def __init__(self, *, lam=1, n_neighbors=100, alpha=0, **kwargs):
+    def __init__(self, *, lam=100, n_neighbors=100, alpha=1, epsilon='bgh', subsample=None, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.n_neighbors = n_neighbors
         self.alpha = alpha
+        self.epsilon = epsilon
+        self.subsample = subsample
 
     def fit(self, x):
+        # DiffusionNet do not support mini-batches. Subspample data if needed to fit in memory
+        if self.subsample is not None:
+            x = x.subset(self.subsample, random_state=self.random_state)
+
+        # Use whole dataset as batch, as in the paper
+        self.batch_size = len(x)
+
         x_np, _ = x.numpy()
 
         # K_mat = df.ComputeLBAffinity(x_np, self.n_neighbors, sig=0.1)   # Laplace-Beltrami affinity: D^-1 * K * D^-1
@@ -113,19 +122,14 @@ class DiffusionNet(AE):
         neighbor_params = {'n_jobs': -1, 'algorithm': 'ball_tree'}
         mydmap = dm.DiffusionMap.from_sklearn(n_evecs=self.n_components,
                                               alpha=self.alpha,
-                                              epsilon='bgh',
+                                              epsilon=self.epsilon,
                                               k=self.n_neighbors,
                                               neighbor_params=neighbor_params)
         dmap = mydmap.fit_transform(x_np)
         self.z = torch.tensor(dmap).float().to(device)
 
-        print(self.z)
-
         self.Evectors = torch.from_numpy(mydmap.evecs).float().to(device)
         self.Evalues = torch.from_numpy(mydmap.evals).float().to(device)
-
-        # Use whole dataset as batch, as in the paper
-        self.batch_size = len(x)
 
         # Potential matrix sparse form
         P = scipy.sparse.coo_matrix(mydmap.L.todense())
@@ -147,24 +151,22 @@ class DiffusionNet(AE):
         super().fit(x)
 
     def apply_loss(self, x, x_hat, z, idx):
-        print(self.lr)
-        print(self.batch_size)
         if self.lam > 0:
 
             rec_loss = self.criterion(x, x_hat)
             coord_loss = self.lam * self.criterion(z, self.z[idx])
-            Ev_loss = 10000000 * (self.lam * torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[0] *
+            Ev_loss = (torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[0] *
                                                                             self.I_t.to_dense()),
-                                                                           self.z[idx][:, 0].view(self.batch_size, 1)),
-                                                                  2)) + self.lam * torch.mean(
+                                                                           z[:, 0].view(self.batch_size, 1)),
+                                                                  2)) + torch.mean(
                 torch.pow(torch.mm((self.P.to_dense() - self.Evalues[1] *
                                     self.I_t.to_dense()),
-                                   self.z[idx][:, 1].view(self.batch_size, 1)), 2)))
+                                   z[:, 1].view(self.batch_size, 1)), 2)))
 
-            loss = rec_loss + coord_loss + Ev_loss
-            print(rec_loss)
-            print(coord_loss)
-            print(Ev_loss)
+            loss = rec_loss + coord_loss + self.lam * Ev_loss
+            # print(rec_loss)
+            # print(coord_loss)
+            # print(Ev_loss)
         else:
 
             loss = self.criterion(x, x_hat)
@@ -206,12 +208,12 @@ class LaplacianAE(AE):
         if self.lam > 0:
 
             rec_loss = self.criterion(x, x_hat)
-            print('Reconstruction')
-            print(rec_loss.item())
+            # print('Reconstruction')
+            # print(rec_loss.item())
 
             loss = 0 * rec_loss + 1e6 * self.coord_loss(z)
-            print('Total loss')
-            print(loss.item())
+            # print('Total loss')
+            # print(loss.item())
 
         else:
 

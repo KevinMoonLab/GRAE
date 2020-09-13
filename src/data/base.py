@@ -8,6 +8,8 @@ from sklearn.model_selection import train_test_split
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+# device = 'cpu'
+
 FIT_DEFAULT = .8  # Default train split ratio
 SEED = 42  # Default seed for splitting
 
@@ -92,8 +94,9 @@ class BaseDataset(Dataset):
         # Return ndarray where columns are latent factors
         return self.latents
 
-    def subset(self, n):
+    def subset(self, n, random_state):
         # Subset self and return torch dataset
+        np.random.seed(random_state)
         sample_mask = np.random.choice(len(self), n, replace=False)
 
         if self.latents is not None:
