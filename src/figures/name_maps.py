@@ -23,7 +23,7 @@ ds_name = dict(SwissRoll='Swiss Roll',
                RotatedDigits='Rotated Digits',
                Teapot='Teapot',
                Embryoid='EB Differentiation',
-               IPSC='IPSC',
+               IPSC='iPSC',
                UMIST='UMIST Faces',
                COIL100='COIL-100',
                Tracking='Object Tracking')
