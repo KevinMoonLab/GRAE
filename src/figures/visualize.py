@@ -11,18 +11,31 @@ from src.figures.utils import load_dict
 PLOT_RUN = 1
 
 
-def grid_plot(id, model_list, dataset_list, run):
-    titles = [get_model_name(m) for m in model_list]
-    n_d = len(dataset_list)
-    n_m = len(model_list)
+def grid_plot(id, model_list, dataset_list, run, flip=False):
+    if flip:
+        first_dim = model_list
+        second_dim = dataset_list
+        titles_first_dim = [get_model_name(m) for m in model_list]
+        titles_second_dim = [get_dataset_name(m) for m in dataset_list]
+    else:
+        first_dim = dataset_list
+        second_dim = model_list
+        titles_first_dim = [get_dataset_name(m) for m in dataset_list]
+        titles_second_dim = [get_model_name(m) for m in model_list]
+
+    n_d = len(first_dim)
+    n_m = len(second_dim)
+
     fig, ax = plt.subplots(n_d, n_m, figsize=(n_m * 3.5, n_d * 3.5))
     path = os.path.join(
         os.path.dirname(__file__),
         os.path.join('..', '..', 'results', id)
     )
 
-    for j, model in enumerate(model_list):
-        for i, dataset in enumerate(dataset_list):
+    for i, first in enumerate(first_dim):
+        for j, second in enumerate(second_dim):
+            model = first if flip else second
+            dataset = second if flip else first
             file_path = os.path.join(path, 'embeddings', model, dataset, f'run_{run}.pkl')
 
             if os.path.exists(file_path):
@@ -38,7 +51,9 @@ def grid_plot(id, model_list, dataset_list, run):
             else:
                 raise Exception('Target embedding does not exist.')
 
-            if n_d == 1:
+            if n_d == 1 and n_m == 1:
+                ax_i = ax
+            elif n_d == 1:
                 ax_i = ax[j]
             elif n_m == 1:
                 ax_i = ax[i]
@@ -58,16 +73,16 @@ def grid_plot(id, model_list, dataset_list, run):
             ax_i.scatter(*z_test.T, c=y_test, s=s_test, cmap='jet')
 
             if i == 0:
-                ax_i.set_title(f'{titles[j]}', fontsize=20, color='black')
+                ax_i.set_title(f'{titles_second_dim[j]}', fontsize=25, color='black')
 
             if j == 0:
-                ax_i.set_ylabel(get_dataset_name(dataset), fontsize=20, color='black')
+                ax_i.set_ylabel(titles_first_dim[i], fontsize=25, color='black')
 
             ax_i.set_xticks([])
             ax_i.set_yticks([])
 
     # plt.gca().set_axis_off()
-    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=.075, wspace=.075)
+    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=.0, wspace=.0)
     # plt.margins(0, 0)
     # plt.gca().xaxis.set_major_locator(plt.NullLocator())
     # plt.gca().yaxis.set_major_locator(plt.NullLocator())
