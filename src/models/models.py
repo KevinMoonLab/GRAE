@@ -305,7 +305,7 @@ class GRAE(AE):
         if self.relax:
             # Current epoch
             # Update lambda
-            self.lam = (-self.epochs*np.exp((epoch - (self.epochs/2))*0.2))/(1+np.exp((epoch - (self.epochs/2))*0.2)) \
+            self.lam = (-self.lam_original*np.exp((epoch - (self.epochs/2))*0.2))/(1+np.exp((epoch - (self.epochs/2))*0.2)) \
                 +  self.lam_original
 
 
