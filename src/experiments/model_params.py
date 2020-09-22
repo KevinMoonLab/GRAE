@@ -3,7 +3,7 @@
 # Default PHATE args
 import copy
 
-DEFAULT_EPOCHS = 800   # First default for most datasets
+DEFAULT_EPOCHS = 800  # First default for most datasets
 DEFAULT_EPOCHS_L = DEFAULT_EPOCHS // 4   # Second default for larger datasets
 
 # Epoch dict used by all AE-based models
@@ -69,11 +69,11 @@ subsample_dict = dict(
     SwissRoll=dict(subsample=None),
     Faces=dict(subsample=None),
     RotatedDigits=dict(subsample=None),
-    Tracking=dict(subsample=None),  # 725
-    Teapot=dict(subsample=290),
+    Tracking=dict(subsample=725),  # 725
+    Teapot=dict(subsample=280),
     Embryoid=dict(subsample=None),
-    IPSC=dict(subsample=None),
-    UMIST=dict(subsample=None),  # 250
+    IPSC=dict(subsample=35000),
+    UMIST=dict(subsample=250),  # 250
     COIL100=dict(subsample=None),
 )
 
@@ -81,12 +81,12 @@ subsample_dict = dict(
 DN_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(n_neighbors=100),
     Faces=dict(n_neighbors=15),
-    RotatedDigits=dict(n_neighbors=10, epsilon=3),
+    RotatedDigits=dict(n_neighbors=200, epsilon=50),
     Tracking=dict(n_neighbors=10),
     Teapot=dict(n_neighbors=15),
     Embryoid=dict(n_neighbors=100),
-    IPSC=dict(n_neighbors=100),
-    UMIST=dict(n_neighbors=10),
+    IPSC=dict(n_neighbors=200, epsilon=50),
+    UMIST=dict(n_neighbors=100, epsilon=100),
     COIL100=dict(n_neighbors=100),
 )
 
@@ -95,10 +95,10 @@ for key, d in DN_dict.items():
     DN_dict[key].update(epoch_dict[key])
 
 # Create dict with epochs and subsample values for EAER
-EAER_dict = copy.deepcopy(epoch_dict)
-
-for key, d in EAER_dict.items():
-    d.update(subsample_dict[key])
+# EAER_dict = copy.deepcopy(epoch_dict)
+#
+# for key, d in EAER_dict.items():
+#     d.update(subsample_dict[key])
 
 # Model parameters to use for experiments
 # Make sure the dict key matches the class name
@@ -125,7 +125,7 @@ DATASET_PARAMS = {
     'UMAP': UMAP_dict,
     'GRAEUMAP' : GRAEUMAP_dict,
     'DiffusionNet': DN_dict,
-    'EAERMargin': EAER_dict,
+    'EAERMargin': epoch_dict,
     'TopoAE': epoch_dict,
 }
 
