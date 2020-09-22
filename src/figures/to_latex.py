@@ -145,7 +145,7 @@ def to_latex(id, split, model_list, dataset_list, digits=4):
     result = f'% {split} split\n' + (
                 r'\resizebox{\textwidth}{!}{' + mean.to_latex(escape=False, multirow=True) + '}').replace('\cline{1-9}',
                                                                                                           '\hline\hline').replace(
-        'nan', 'n/a')
+        'nan', 'n/a').replace('\cline{1-5}', '\hline')
 
     with open(target_path, "w") as text_file:
         text_file.write(result)
