@@ -4,8 +4,8 @@ import urllib
 import math
 
 import numpy as np
-from torchvision import transforms
 import torch
+from torchvision import transforms
 import torchvision.datasets as torch_datasets
 from scipy.io import loadmat
 from PIL import Image
@@ -13,15 +13,32 @@ from scipy import ndimage
 import requests
 from skimage.transform import resize
 from skimage.util import random_noise
-import zipfile
 
 from src.data.base import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
 
+
+# Set to False to flatten all data tensors.
+# Models use FC or convolution layers depending on the shape of the Data. Flattening all tensors effectively only
+# allows the use of FC networks in the experiments.
 ALLOW_CONV = True
 
 
 class Faces(BaseDataset):
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
+    """Faces dataset.
+
+    From A Global Geometric Framework for Nonlinear Dimensionality Reduction paper by Tenenbaum et al.
+    698 64 x 64 images of a rotating head. Ground truths are horizontal and vertical rotation angles.
+
+    """
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+        """Init.
+
+
+        Args:
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+        """
         self.url = 'http://stt3795.guywolf.org/Devoirs/D02/face_data.mat'
         self.root = os.path.join(BASEPATH, 'Faces')
 
@@ -35,15 +52,15 @@ class Faces(BaseDataset):
 
         y = d['poses'].T
 
-        super().__init__(x, y, split, split_ratio, seed)
+        super().__init__(x, y, split, split_ratio, random_state)
 
-        # Save y_1 and y_2 for coloring
-        y_2 = self.targets[:, 1].numpy()
         y_1 = self.targets[:, 0].numpy()
+        y_2 = self.targets[:, 1].numpy()
 
-        # Keep only one latent in the targets attribute for compatibility with
-        # other datasets
+        # Keep only one rotation angle in the targets attribute for coloring
         self.targets = self.targets[:, 0]
+
+        # Keep both rotation angles in the latents attribute for computing metrics
         self.latents = np.vstack((y_1.flatten(), y_2.flatten())).T
 
         # Reshape dataset in image format
@@ -56,7 +73,24 @@ class Faces(BaseDataset):
 
 
 class UMIST(BaseDataset):
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
+    """UMIST dataset.
+
+    From Characterizing Virtual Eigensignatures for General Purpose Face Recognition, Daniel B Graham
+    and Nigel M Allinson. In Face Recognition: From Theory to Applications. As cropped by Sam Roweis.
+
+    575 112 x 92 face images of 20 subjects. Ground truths are subject ID and an approximation of the azimuth of the
+    head based on the ordering of the pictures (roughly 0 to 90 degrees for each subject).
+
+    """
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+        """Init.
+
+
+        Args:
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+        """
         self.url = 'https://cs.nyu.edu/~roweis/data/umist_cropped.mat'
         self.root = os.path.join(BASEPATH, 'UMIST')
 
@@ -75,7 +109,7 @@ class UMIST(BaseDataset):
 
             p.reshape((-1, 112 * 92)) # Flat array
 
-            # Some subjects require reordering for order to roughly match rotation angles
+            # Some subjects require manual reordering for order to roughly match rotation angles
 
             # Person 6
             if i == 6:
@@ -110,15 +144,16 @@ class UMIST(BaseDataset):
             x.append(p)
             targets.append(np.vstack((i * np.ones(p.shape[0]), np.arange(p.shape[0]))).T)
 
-        x = np.vstack(x)/255
+        x = np.vstack(x)/255 # Normalize
         targets = np.vstack(targets)
 
-        super().__init__(x, targets, split, split_ratio, seed, labels=targets[:, 0].astype(int).reshape(-1))
+        # Pass id to the labels argument to make sure the subject proportions are the same across both splits
+        super().__init__(x, targets, split, split_ratio, random_state, labels=targets[:, 0].astype(int).reshape(-1))
 
-        # Store both classes and angles as latents
+        # Store both subject ids and angles as latents
         self.latents = np.copy(self.targets)
 
-        # Keep only classes as targets
+        # Keep only subject ids as targets
         self.targets = self.targets[:, 0]
 
         # Reshape dataset in image format
@@ -131,7 +166,22 @@ class UMIST(BaseDataset):
 
 
 class Teapot(BaseDataset):
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
+    """Teapot dataset.
+
+    From Learning a kernel matrix for nonlinear dimensionality reduction by Weinberger et al.
+    400 RGB images of size 76 x 128 feature a rotating textured teapot.
+    Data and processing sourced from the maximum-variance-unfolding repository of calebralphs on GitHub.
+
+    """
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+        """Init.
+
+
+        Args:
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+        """
         self.url = 'https://github.com/calebralphs/maximum-variance-unfolding/blob/master/Teapots.mat?raw=true'
 
         self.root = os.path.join(BASEPATH, 'Teapot')
@@ -144,14 +194,17 @@ class Teapot(BaseDataset):
 
         x = d['Input'][0][0][0].T / 255
 
+        # Images are ordered by rotation angle. Set target accordingly.
         y = np.linspace(start=0, stop=360, num=400, endpoint=False)
 
-        super().__init__(x, y, split, split_ratio, seed)
+        super().__init__(x, y, split, split_ratio, random_state)
 
         self.y = y
 
-        #  Return vector of 1 for compatibility with other rotations datasets (even if only 1 class here)
-        self.latents = np.vstack((np.ones(len(self)), self.targets.numpy().flatten() / (360/(2 * math.pi)))).T
+        # Set first latent to a single class (there's only one teapot) for compatibility with other datasets with
+        # circular structure (see Rotated Digits)
+        # Second latent variable is the rotation angle
+        self.latents = np.vstack((np.ones(len(self)), self.targets.numpy().flatten() / (360 / (2 * math.pi)))).T
 
         # Reshape dataset in image format
         if ALLOW_CONV:
@@ -177,9 +230,26 @@ class Teapot(BaseDataset):
 
 
 class Tracking(BaseDataset):
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
+    """Object Tracking dataset.
+
+    Custom dataset where a 16x16 RGB sprite is moved against a 64x64 RGB background to create a dataset with two latent
+    variables, that is, the horizontal and vertical coordinates of the character. Gaussian noise is added to the
+    background.
+
+    Contains 2304 images.
+    """
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+        """Init.
+
+
+        Args:
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+        """
         self.root = os.path.join(BASEPATH, 'Tracking')
 
+        # Generate data if it does not exist
         if not os.path.exists(self.root):
             os.mkdir(self.root)
 
@@ -205,6 +275,7 @@ class Tracking(BaseDataset):
             stride = 1
             i = 0
 
+            # Generate images
             while i < 64 - 16:
                 j = 0
                 while j < 64 - 16:
@@ -220,13 +291,7 @@ class Tracking(BaseDataset):
 
                     bg_copy = bg_copy.convert('RGB')
 
-                    # Average for black and white
-                    # img = np.mean(np.array(bg_copy), axis=2)
                     img = np.array(bg_copy)
-
-                    # Show samples images
-                    if (i == 3 and j == 3) or (i == 20 and j == 20) or (i == 40 and j == 40):
-                        Image.fromarray(img).show()
 
                     x.append(img[np.newaxis, :])
                     y_1.append(i)
@@ -247,7 +312,7 @@ class Tracking(BaseDataset):
         x = np.load(os.path.join(self.root, 'x.npy'))
         y = np.load(os.path.join(self.root, 'y.npy'))
 
-        super().__init__(x, y, split, split_ratio, seed)
+        super().__init__(x, y, split, split_ratio, random_state)
 
         if not ALLOW_CONV:
             self.data = self.data.view(len(self), -1)
@@ -266,13 +331,24 @@ class Tracking(BaseDataset):
 
 
 class Rotated(BaseDataset):
+    """Pick n_images of n different classes and return a dataset with n_rotations for each image."""
+
     def __init__(self, fetcher, split='none', split_ratio=FIT_DEFAULT,
-                 seed=SEED, n_images=3, n_rotations=360, max_degree=360):
-        """Pick n_images of n different classes and return a dataset with
-         n_rotations for each image."""
+                 random_state=SEED, n_images=3, n_rotations=360, max_degree=360):
+        """Init.
+
+        Args:
+            fetcher(torch_datasets): Torch fetcher to get the base images in tensor format.
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+            n_images(int, optional): Number of base images to rotate.
+            n_rotations(int, optional): Number of rotations for each image.
+            max_degree(int, optional): Max rotation in degrees. The rotations span the interval [0, max_degree].
+        """
         self.max_degree = max_degree
 
-        np.random.seed(seed)
+        np.random.seed(random_state)
 
         transforms_MNIST = transforms.Compose([
             transforms.ToTensor(),
@@ -296,6 +372,7 @@ class Rotated(BaseDataset):
             imgs.append(subset[i])
 
         def generate_rotations(img, c, N):
+            """Utility that takes in an image and returns the samples generated by the rotation."""
             img = img.reshape((28, 28))
 
             new_angles = np.linspace(0, self.max_degree, num=N, endpoint=False)
@@ -321,13 +398,13 @@ class Rotated(BaseDataset):
         # Send targets and angles as one object for compatibility with parent class
         targets = np.vstack((targets, angles)).T
 
-        super().__init__(inputs, targets, split, split_ratio, seed)
+        super().__init__(inputs, targets, split, split_ratio, random_state)
 
         # Split back angles and targets
         angles = self.targets[:, 1]
         self.targets = self.targets[:, 0]
 
-        # Class as first column and angles (in radians) as second column.
+        # Class as first latent variable and angles (in radians) as second latent variable.
         self.latents = np.vstack((self.targets.numpy().flatten(), angles.numpy().flatten() / (360/(2 * math.pi)))).T
 
 
@@ -335,60 +412,20 @@ class RotatedDigits(Rotated):
     """3 rotated MNIST digits with 360 rotations per image, for a total of
     1080 samples."""
 
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED,
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED,
                  n_images=3, n_rotations=360):
-        super().__init__(torch_datasets.MNIST, split, split_ratio, seed,
+        """Init.
+
+        Args:
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+            n_images(int, optional): Number of base images to rotate.
+            n_rotations(int, optional): Number of rotations for each image.
+        """
+        super().__init__(torch_datasets.MNIST, split, split_ratio, random_state,
                          n_images, n_rotations)
 
         if ALLOW_CONV:
             self.data = self.data.view(-1, 1, 28, 28)
-
-
-class COIL100(BaseDataset):
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
-        self.url = 'http://www.cs.columbia.edu/CAVE/databases/SLAM_coil-20_coil-100/coil-100/coil-100.zip'
-        self.root = os.path.join(BASEPATH, 'COIL100')
-
-        if not os.path.exists(self.root):
-            os.mkdir(self.root)
-            self._download()
-
-        x = np.load(os.path.join(self.root, 'x.npy'))
-        y = np.load(os.path.join(self.root, 'y.npy'))
-
-        super().__init__(x, y, split, split_ratio, seed, labels=y[:, 0].astype(int).reshape(-1))
-
-        self.latents = np.copy(self.targets)
-
-        # Keep only one latent in the targets attribute for compatibility with
-        # other datasets
-        self.targets = self.targets[:, 0]
-
-        # Reshape dataset in image format
-        if ALLOW_CONV:
-            self.data = self.data.view(-1, 128, 128, 3).permute(0, 3, 1, 2)
-
-    def _download(self):
-        print('Downloading COIL100 dataset...')
-        path = os.path.join(self.root, 'coil100.zip')
-        urllib.request.urlretrieve(self.url, path)
-
-        with zipfile.ZipFile(path, 'r') as zip_ref:
-            zip_ref.extractall()
-
-        x = list()
-        y = list()
-
-        for i in range(1, 101):
-            for j in range(0, 360, 5):
-                img = Image.open(os.path.join(self.root, 'coil-100', f'obj{i}__{j}.png'))
-                img.load()
-                img = np.asarray(img, dtype='int32')
-                x.append(img.flatten()/255)
-                y.append(np.array([i, j]))
-
-        x = np.vstack(x)
-        y = np.vstack(y)
-        np.save(os.path.join(self.root, 'x.npy'), x)
-        np.save(os.path.join(self.root, 'y.npy'), y)
 

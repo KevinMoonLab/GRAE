@@ -105,7 +105,7 @@ class DiffusionNet(AE):
     def fit(self, x):
         # DiffusionNet do not support mini-batches. Subspample data if needed to fit in memory
         if self.subsample is not None:
-            x = x.subset(self.subsample, random_state=self.random_state)
+            x = x.random_subset(self.subsample, random_state=self.random_state)
 
         # Use whole dataset as batch, as in the paper
         self.batch_size = len(x)

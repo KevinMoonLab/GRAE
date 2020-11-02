@@ -42,9 +42,9 @@ def grid_plot(id, model_list, dataset_list, run, flip=False, full_manifold=False
                 # Retrieve datasets for coloring
                 data = load_dict(file_path)
                 X_train = getattr(src.data, dataset)(split='train',
-                                                     seed=data['dataset_seed'])
+                                                     random_state=data['dataset_seed'])
                 X_test = getattr(src.data, dataset)(split='test',
-                                                    seed=data['dataset_seed'])
+                                                    random_state=data['dataset_seed'])
                 _, y_train = X_train.numpy()
                 _, y_test = X_test.numpy()
                 z_train, z_test = data['z_train'], data['z_test']

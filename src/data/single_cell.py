@@ -13,9 +13,23 @@ EB_COMPONENTS = None  # PCA components for EB data. Set to none if all genes sho
 
 
 class Embryoid(BaseDataset):
-    """Single cell RNA sequencing for embryoid body data generated over 27 day time course."""
+    """Single cell RNA sequencing for embryoid body data generated over 27 day time course.
 
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED):
+    See https://nbviewer.jupyter.org/github/KrishnaswamyLab/PHATE/blob/master/Python/tutorial/EmbryoidBody.ipynb
+    for details about the data.
+
+    16821 cells with 17845 markers. The ground truth is the time at which the measurements were taken.j
+
+    """
+
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+        """Init.
+
+        Args:
+            split(str, optional): Name of split.
+            split_ratio(float, optional): Ratio to use for train split. Test split ratio is 1 - split_ratio.
+            random_state(int, optional): To set random_state values for reproducibility.
+        """
 
         # Download and preprocess dataset if needed
         self.root = os.path.join(BASEPATH, 'Embryoid')
@@ -28,7 +42,7 @@ class Embryoid(BaseDataset):
 
             # need to download the data
             scprep.io.download.download_and_extract_zip(
-                "https://data.mendeley.com/datasets/v6n743h5ng/1/files/b1865840-e8df-4381-8866-b04d57309e1d/scRNAseq.zip?dl=1",
+                "https://data.mendeley.com/public-files/datasets/v6n743h5ng/files/b1865840-e8df-4381-8866-b04d57309e1d/file_downloaded",
                 self.root)
 
             # Load data in dataframes
@@ -74,7 +88,7 @@ class Embryoid(BaseDataset):
             np.save(os.path.join(self.root, 'x'), EBT_counts.to_numpy(dtype='float'))
             np.save(os.path.join(self.root, 'y'), sample_labels.to_numpy(dtype='float'))
 
-        file_path = os.path.join(self.root, f'x_{seed}_{EB_COMPONENTS}.npy')  # File path of PCA data
+        file_path = os.path.join(self.root, f'x_{random_state}_{EB_COMPONENTS}.npy')  # File path of PCA data
 
         if EB_COMPONENTS != None and not os.path.exists(file_path):
             # Compute PCA on train split given by a specific seed
@@ -83,7 +97,7 @@ class Embryoid(BaseDataset):
             n = x.shape[0]
             train_idx, _ = train_test_split(np.arange(n),
                                             train_size=split_ratio,
-                                            random_state=seed)
+                                            random_state=random_state)
 
             pca = PCA(n_components=EB_COMPONENTS).fit(x[train_idx])  # Compute only on train set
 
@@ -98,7 +112,7 @@ class Embryoid(BaseDataset):
 
         y = np.load(os.path.join(self.root, 'y.npy'), allow_pickle=True)
 
-        super().__init__(x, y, split, split_ratio, seed)
+        super().__init__(x, y, split, split_ratio, random_state)
 
     def get_latents(self):
         # Only 1D ground truth
@@ -106,7 +120,26 @@ class Embryoid(BaseDataset):
 
 
 class IPSC(BaseDataset):
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, seed=SEED, subsample=None):
+    """iPSC data.
+
+    From PHATE: A Dimensionality Reduction Method for Visualizing Trajectory Structures in High-Dimensional
+    Biological Data, by Moon et al.
+
+    Single-cell mass cytometry data showing iPSC reprogramming of mouse embryonic fibroblasts. 220,450 cells and
+    33 markers.
+
+    Data should be added manually to data/processed/Ipsc before calling the class.
+
+    """
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, n_subsample=None):
+        """Init.
+
+        Args:
+            split(str, optional): Name of split.
+            split_ratio(float, optional): Ratio to use for train split. Test split ratio is 1 - split_ratio.
+            random_state(int, optional): To set random_state values for reproducibility.
+            n_subsample(int, optional): Number of samples to draw from the dataset. Defaults to None (entire dataset).
+        """
         file_path = os.path.realpath(os.path.join(BASEPATH, 'Ipsc', 'ipscData.mat'))
         if not os.path.exists(file_path):
             raise Exception(f'{file_path} should be added manually before running experiments.')
@@ -115,15 +148,15 @@ class IPSC(BaseDataset):
         x = data['data']
         y = data['data_time']
 
-        if subsample is not None:
-            np.random.seed(seed)
-            mask = np.random.choice(x.shape[0], size=subsample)
+        if n_subsample is not None:
+            np.random.seed(random_state)
+            mask = np.random.choice(x.shape[0], size=n_subsample)
             x = x[mask]
             y = y[mask]
 
         y = y.flatten()
 
-        super().__init__(x, y, split, split_ratio, seed)
+        super().__init__(x, y, split, split_ratio, random_state)
 
 
     def get_latents(self):

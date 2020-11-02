@@ -208,7 +208,7 @@ def score(id, model_list, dataset_list):
                 metrics = dict()
 
                 # Fit linear regressions on train split
-                X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
+                X = getattr(src.data, dataset)(split=split, random_state=dataset_seed)
                 y = X.get_latents()
                 z = data[f'z_{split}']
 

@@ -22,8 +22,8 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # Names should be the same as the class names defined in the models and datasets modules. GRAE variants can be suffixed
 # (ex: GRAE_10) to choose the lambda value
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['AE']
-DATASETS = ['Faces', 'Teapot']
+MODELS = ['GRAE']
+DATASETS = ['SwissRoll', 'Faces', 'RotatedDigits']
 
 RUNS = 1
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
@@ -66,8 +66,8 @@ for model in MODELS:
             print(f'       Run {j + 1}...')
 
             # Fetch and split dataset. Handle numpy input for some models
-            data_train = getattr(src.data, dataset)(split='train', seed=RANDOM_STATES[j])
-            data_test = getattr(src.data, dataset)(split='test', seed=RANDOM_STATES[j])
+            data_train = getattr(src.data, dataset)(split='train', random_state=RANDOM_STATES[j])
+            data_test = getattr(src.data, dataset)(split='test', random_state=RANDOM_STATES[j])
 
             # Parse model name. Underscore allows to pass a lambda argument to GRAE variants (ex : GRAE_10)
             arg_list = model.split('_')

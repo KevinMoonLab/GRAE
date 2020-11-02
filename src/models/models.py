@@ -11,7 +11,7 @@ from scipy.spatial.distance import pdist, squareform
 from sklearn.metrics import mean_squared_error
 
 from src.data.base import device
-from src.data.base import NumpyDataset
+from src.data.base import FromNumpyDataset
 from src.models.torch_modules import AutoencoderModule, ConvAutoencoderModule
 
 # Hyperparameters defaults
@@ -253,7 +253,7 @@ class AE(BaseModel):
 
     def inverse_transform(self, z):
         self.torch_module.eval()
-        z = NumpyDataset(z)
+        z = FromNumpyDataset(z)
         loader = torch.utils.data.DataLoader(z, batch_size=self.batch_size,
                                              shuffle=False)
         x_hat = [self.torch_module.decoder(batch.to(device)).cpu().detach().numpy()
