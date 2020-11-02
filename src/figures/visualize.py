@@ -11,7 +11,7 @@ from src.figures.utils import load_dict
 PLOT_RUN = 1
 
 
-def grid_plot(id, model_list, dataset_list, run, flip=False):
+def grid_plot(id, model_list, dataset_list, run, flip=False, full_manifold=False):
     if flip:
         first_dim = model_list
         second_dim = dataset_list
@@ -68,9 +68,12 @@ def grid_plot(id, model_list, dataset_list, run, flip=False):
                 s_train /= 10
                 s_test /= 10
 
-            ax_i.scatter(*z_train.T, s=s_train, alpha=.2, color='grey')
-
-            ax_i.scatter(*z_test.T, c=y_test, s=s_test, cmap='jet')
+            if not full_manifold:
+                ax_i.scatter(*z_train.T, s=s_train, alpha=.2, color='grey')
+                ax_i.scatter(*z_test.T, c=y_test, s=s_test, cmap='jet')
+            else:
+                ax_i.scatter(*z_train.T, s=s_train, cmap='jet', c=y_train)
+                ax_i.scatter(*z_test.T, s=s_train, cmap='jet', c=y_test)
 
             if i == 0:
                 ax_i.set_title(f'{titles_second_dim[j]}', fontsize=25, color='black')
