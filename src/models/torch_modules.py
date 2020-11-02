@@ -1,4 +1,5 @@
 """Torch modules."""
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -21,7 +22,7 @@ class MLP(nn.Sequential):
 
 
 class AutoencoderModule(nn.Module):
-    def __init__(self, input_dim, hidden_dims, z_dim):
+    def __init__(self, input_dim, hidden_dims, z_dim, noise=0):
         super().__init__()
 
         full_list = [input_dim] + list(hidden_dims) + [z_dim]
@@ -29,10 +30,17 @@ class AutoencoderModule(nn.Module):
         self.encoder = MLP(dim_list=full_list)
         full_list.reverse()
         self.decoder = MLP(dim_list=full_list)
+        self.noise = noise
 
     def forward(self, x):
         z = self.encoder(x)
-        return self.decoder(z), z
+
+        if self.noise > 0:
+            z_decoder = z + self.noise * torch.randn_like(z)
+        else:
+            z_decoder = z
+
+        return self.decoder(z_decoder), z
 
 
 # Convolution architecture
@@ -136,14 +144,21 @@ class ConvDecoder(nn.Module):
         return x
 
 class ConvAutoencoderModule(nn.Module):
-    def __init__(self, H, W, input_channel, channel_list, hidden_dims, z_dim):
+    def __init__(self, H, W, input_channel, channel_list, hidden_dims, z_dim, noise):
         super().__init__()
 
         self.encoder = ConvEncoder(H, W, input_channel, channel_list, hidden_dims, z_dim)
         channel_list.reverse()
         hidden_dims.reverse()
         self.decoder = ConvDecoder(H, W, input_channel, channel_list, hidden_dims, z_dim)
+        self.noise = noise
 
     def forward(self, x):
         z = self.encoder(x)
-        return self.decoder(z), z
+
+        if self.noise > 0:
+            z_decoder = z + self.noise * torch.randn_like(z)
+        else:
+            z_decoder = z
+
+        return self.decoder(z_decoder), z

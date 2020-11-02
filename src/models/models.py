@@ -39,7 +39,7 @@ class BaseModel:
     def transform(self, X):
         raise NotImplementedError()
 
-    def fit_plot(self, X, cmap='jet', s=1, fit=True):
+    def fit_plot(self, X, cmap='jet', s=1, fit=True, title=None):
         if fit:
             z = self.fit_transform(X)
         else:
@@ -49,6 +49,9 @@ class BaseModel:
 
         if z.shape[1] != 2:
             raise Exception('Can only plot 2D embeddings.')
+
+        if title is not None:
+            plt.title(title)
 
         plt.scatter(*z.T, c=y, cmap=cmap, s=s)
         plt.show()
@@ -155,7 +158,7 @@ class AE(BaseModel):
 
     def __init__(self, *, lr=LR, epochs=EPOCHS, batch_size=BATCH_SIZE, weight_decay=WEIGHT_DECAY,
                  random_state=SEED, n_components=2, hidden_dims=HIDDEN_DIMS,
-                 conv_dims=CONV_DIMS, conv_fc_dims=CONV_FC_DIMS):
+                 conv_dims=CONV_DIMS, conv_fc_dims=CONV_FC_DIMS, noise=0):
         self.random_state = random_state
         self.n_components = n_components
         self.hidden_dims = hidden_dims  # List of dimensions of the hidden layers in the encoder (decoder will use
@@ -171,6 +174,7 @@ class AE(BaseModel):
         self.criterion = nn.MSELoss(reduction='sum')
         self.conv_dims = conv_dims
         self.conv_fc_dims = conv_fc_dims
+        self.noise = noise
 
     def fit(self, X, epochs=None, epoch_offset=0):
         if epochs is None:
@@ -188,7 +192,8 @@ class AE(BaseModel):
                 input_size = X[0][0].shape[0]
                 self.torch_module = AutoencoderModule(input_dim=input_size,
                                                       hidden_dims=self.hidden_dims,
-                                                      z_dim=self.n_components)
+                                                      z_dim=self.n_components,
+                                                      noise=self.noise)
             elif len(X[0][0].shape) == 3:
                 in_channel, height, width = X[0][0].shape
                 #  Convolutionnal case
@@ -197,7 +202,8 @@ class AE(BaseModel):
                                                           input_channel=in_channel,
                                                           channel_list=self.conv_dims,
                                                           hidden_dims=self.conv_fc_dims,
-                                                          z_dim=self.n_components)
+                                                          z_dim=self.n_components,
+                                                          noise=self.noise)
             else:
                 raise Exception(f'Invalid channel number. X has {len(X[0][0].shape)}')
 
