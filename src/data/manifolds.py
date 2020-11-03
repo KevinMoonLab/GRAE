@@ -86,7 +86,8 @@ class Roll(BaseDataset):
 
         # Backup first axis, as it represents one of the underlying latent
         # variable we aim to recover
-        self.y_pure = copy.deepcopy(x[:, 1])
+        y_pure = copy.deepcopy(x[:, 1])
+        latents = np.vstack((y, y_pure)).T
 
         # Normalize
         x = scipy.stats.zscore(x)
@@ -96,7 +97,7 @@ class Roll(BaseDataset):
         sort = np.argsort(ab)
 
         # Take the sli_points points closest to origin
-        # This is not used by the base class, but will be used by the Ribbons
+        # This is not used by the base class, but will be used by the SwissRoll
         # children class to remove a thin slice from the roll
         self.test_idx = sort[0:sli_points]
 
@@ -124,11 +125,14 @@ class Roll(BaseDataset):
         x = x @ rot_2 @ rot_3 @ rot
         x = scipy.stats.zscore(x)  # Normalize for true unit variance
 
-        super().__init__(x, y, split, split_ratio, random_state)
+        super().__init__(x, latents, split, split_ratio, random_state)
 
         # Latent variables are the coordinate on the "length" dimension and the color given by Sklearn
         # Both parametrize the intrinsic plane
-        self.latents = np.vstack((self.targets.numpy().flatten(), self.y_pure)).T
+        self.latents = self.targets.numpy()
+
+        # Only keep one latent as target for compatibility with other datasets
+        self.targets = self.targets[:, 0]
 
 
 class SwissRoll(Roll):
@@ -172,15 +176,10 @@ class SwissRoll(Roll):
             return torch.from_numpy(x), torch.from_numpy(y)
 
         x_train, y_train, x_test, y_test = slice_3D(x, y, self.test_idx)
-        train_mask = np.full(x.shape[0], fill_value=True)
-        train_mask[self.test_idx] = False
-        test_mask = np.logical_not(train_mask)
 
         if split == 'train':
-            self.y_pure = self.y_pure[train_mask]
             return torch.from_numpy(x_train), torch.from_numpy(y_train)
         else:
-            self.y_pure = self.y_pure[test_mask]
             return torch.from_numpy(x_test), torch.from_numpy(y_test)
 
 
