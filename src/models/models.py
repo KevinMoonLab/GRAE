@@ -39,24 +39,31 @@ class BaseModel:
     def transform(self, X):
         raise NotImplementedError()
 
-    def fit_plot(self, X, cmap='jet', s=1, fit=True, title=None):
+    def fit_plot(self, x_train, cmap='jet', s=15, fit=True, title=None, x_test=None):
         if fit:
-            z = self.fit_transform(X)
+            z_train = self.fit_transform(x_train)
         else:
-            z = self.transform(X)
+            z_train = self.transform(x_train)
 
-        y = X.targets.numpy()
+        y_train = x_train.targets.numpy()
 
-        if z.shape[1] != 2:
+        if z_train.shape[1] != 2:
             raise Exception('Can only plot 2D embeddings.')
 
         if title is not None:
             plt.title(title)
 
-        plt.scatter(*z.T, c=y, cmap=cmap, s=s)
+        if x_test is None:
+            plt.scatter(*z_train.T, c=y_train, cmap=cmap, s=s)
+        else:
+            # Train data is grayscale and Test data is colored
+            z_test = self.transform(x_test)
+            y_test = x_test.targets.numpy()
+            plt.scatter(*z_train.T, c='grey', s=s/10, alpha=.2)
+            plt.scatter(*z_test.T, c=y_test, cmap=cmap, s=s)
         plt.show()
 
-        return z
+        return z_train
 
     def reconstruct(self, X):
         return self.inverse_transform(self.transform(X))
