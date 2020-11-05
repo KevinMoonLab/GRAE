@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 
-from src.figures.name_maps import get_model_name, get_dataset_name, get_metrics_name
+from src.figures.name_getters import get_model_name, get_dataset_name, get_metrics_name
 
 # Color Gradient
 GRADIENT = ["2F781E", "4D8418", "699010", "879C06", "A5A600", "B6A100", "C69B00",

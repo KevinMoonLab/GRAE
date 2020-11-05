@@ -1,32 +1,53 @@
-"""Routine to score embeddings."""
+"""Routine to score embeddings produced by the main experiment script."""
 import pandas as pd
 import os
 
 import numpy as np
-from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.linear_model import Lasso
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import pearsonr
 
 import src.data
-from src.metrics.dis_metrics import dis_metrics, dis_metrics_1D
-from src.figures.utils import load_dict
+from src.experiments.utils import load_dict
+
+# Metrics to compute
+METRICS = ['fit_time', 'R2', 'reconstruction']
 
 
-class Book():
-    """Class log metrics."""
+class Book:
+    """Object to save metrics and associated data.
+
+    Add entries with add_entry and return a final dataframe with get_df.
+    """
 
     def __init__(self, datasets, models, metrics):
-        self.col = ['model', 'dataset', 'run', 'split'] + metrics
-        self.log = list()
+        """Init.
+
+        Args:
+            datasets(List[str]): List of allowed dataset names.
+            models(List[str]): List of allowed model names.
+            metrics(List[str]): List of allowed metrics
+        """
+        self.col = ['model', 'dataset', 'run', 'split'] + metrics  # DataFrame columns
+        self.log = list()  # List of lists to store entries
         self.models = models
         self.datasets = datasets
         self.splits = ('train', 'test')
         self.metrics = metrics
 
     def add_entry(self, model, dataset, run, split, **kwargs):
+        """Add entry to book.
+
+        Args:
+            model(str): Model name.
+            dataset(str): Dataset name.
+            run(int): Run number.
+            split(str): Split name ('train' or 'test').
+            **kwargs(Dict[str, float]): Metric values. Key should be the metric name as provided in self.metrics.
+
+        """
         # Proof read entry
-        self.check(model, dataset, split)
-        self.check_metrics(kwargs)
+        self.check(model, dataset, split, kwargs)
 
         metrics_ordered = [kwargs[k] for k in self.metrics]
 
@@ -38,73 +59,66 @@ class Book():
 
         self.log.append(entry)
 
-    def check(self, model, dataset, split):
+    def check(self, model, dataset, split, kwargs):
+        """Check values of arguments.
+
+        Args:
+            model(str): Model name.
+            dataset(str): Dataset name.
+            split(str): Split name ('train' or 'test').
+            kwargs(Dict[str, float]): Metric values. Key should be the metric name as provided in self.metrics.
+
+        Raises:
+            ValueError : If arguments are not in the lists declared in the init method.
+
+        """
         if model not in self.models:
-            raise Exception('Invalid model name.')
+            raise ValueError('Invalid model name.')
 
         if dataset not in self.datasets:
-            raise Exception('Invalid dataset name.')
+            raise ValueError('Invalid dataset name.')
 
         if split not in self.splits:
-            raise Exception('Invalid split name.')
+            raise ValueError('Invalid split name.')
 
-    def check_metrics(self, kwargs):
         if len(kwargs.keys()) != len(self.metrics):
-            raise Exception('Wrong number of metrics.')
+            raise ValueError('Wrong number of metrics.')
 
         for key in kwargs.keys():
             if key not in self.metrics:
-                raise Exception(f'Trying to add undeclared metric {key}')
+                raise ValueError(f'Trying to add undeclared metric {key}')
 
     def get_df(self):
+        """Return all results accumulated in self.log.
+
+        Returns:
+            DataFrame: Results.
+
+        """
         return pd.DataFrame.from_records(self.log, columns=self.col)
 
 
-def refine_df(df, df_metrics):
-    df_group = df.groupby(['split', 'dataset', 'model'])
-    mean = df_group.mean().drop(columns=['run']).round(4)
-
-    # Add rank columns
-    for m in df_metrics:
-        # Higher is better
-        ascending = False
-
-        if m == 'reconstruction' or m.split('_')[0] == 'mrre':
-            # Lower is better
-            ascending = True
-
-        loc = mean.columns.get_loc(m) + 1
-        rank = mean.groupby(['split', 'dataset'])[m].rank(method='min', ascending=ascending)
-        mean.insert(loc=loc, column=f'{m}_rank', value=rank)
-
-    return mean
-
-
-# Define required metrics
-# 2D Disentanglement metrics
-# DIS_METRICS = ['dist_corr',
-#                'pearson_source_1', 'pearson_source_2',
-#                'pearson_ICA_source_1', 'pearson_ICA_source_2',
-#                # 'pearson_slice_source_1', 'pearson_slice_source_2',
-#                'spearman_source_1', 'spearman_source_2',
-#                'spearman_ICA_source_1', 'spearman_ICA_source_2',
-#                # 'spearman_slice_source_1', 'spearman_slice_source_2',
-#                'mutual_information_source_1', 'mutual_information_source_2',
-#                'mutual_information_ICA_source_1', 'mutual_information_ICA_source_2',
-#                # 'mutual_information_slice_source_1', 'mutual_information_slice_source_2'
-# ]
-DIS_METRICS = ['fit_time', 'R2', 'reconstruction']
-
-
 def radial_regression(cartesian_emb, labels, angles):
-    """Regression of the angles of an embedding with an angle ground truth and return R^2.
-    Used for datasets such as Teapot and Rotated Digits.
+    """Regression of the angles of an embedding with a "polar" ground truth and return R^2.
 
-    If multiple classes (rings) are present, will return the R^2 average."""
+    Used for datasets such as Teapot and Rotated Digits.
+    First center embeddings and use one point to align them, otherwise a rotation may
+    break the linear relationship. Compute the R^2 score based on the embedding angles.
+    If multiple classes (rings) are present (e.g. Rotated Digits), will return the R^2 average over
+    all rings.
+
+    Args:
+        cartesian_emb(ndarray): Embedding.
+        labels(ndarray): Ground truth classes.
+        angles(ndarray): Ground truth angles.
+
+    Returns:
+        float: R^2 (or average thereof) of the regressor on the embedding angles.
+    """
 
     if cartesian_emb.shape[1] != 2:
-        raise Exception('Radial regression requires conversion to polar coordinates. Will only work'
-                        'with 2 dimensions.')
+        raise ValueError('Radial regression requires conversion to polar coordinates. Will only work'
+                         'with 2 dimensions.')
 
     c = np.unique(labels)
     r2 = list()
@@ -114,12 +128,13 @@ def radial_regression(cartesian_emb, labels, angles):
         emb = cartesian_emb[mask]
         centered_emb = emb - emb.mean(axis=0)
 
+        # Ground truth in class
         class_angles = angles[mask]
+
+        # Polar coordinates of the embedding (we're only interested in the angle here)
         phi = np.arctan2(*centered_emb.T) + np.pi
 
-
         # Align smallest angle to prevent arbitrary rotation from affecting the regression
-
         arg_min = min(class_angles.argmin(), phi.argmin())
         phi -= phi[arg_min]
         phi %= 2 * np.pi
@@ -135,26 +150,46 @@ def radial_regression(cartesian_emb, labels, angles):
 
         phi = phi.reshape((-1, 1))
 
+        # Compute regression and R^2 score
         m = Lasso(alpha=.002, fit_intercept=True)
         m.fit(phi, class_angles)
         r2.append(m.score(phi, class_angles))
 
     return np.mean(r2)
 
+
 def latent_regression(z, y, labels=None):
-    """Regression of latent ground truth factors (y) using embedding z."""
+    """Regression of latent ground truth factors (y) using embedding z.
+
+    Compute a linear regression to predict a ground truth factor based on the embedding coordinates and return the R^2
+    score. If more than one ground truth variable is present, fit multiple regressors and return the R^2.
+
+    If sample classes are provided in the labels argument, repeat the above procedure independantly for all classes and
+    return the average score.
+
+    Args:
+        z(ndarray): Embedding.
+        y(ndarray): Ground truth variables, as columns.
+        labels(ndarray): Class indices, if embedding needs to be partionned.
+
+    Returns:
+        float : R^2 (or average thereof over all classes and ground truth variables) of a linear regressor over the
+        embedding coordinates.
+    """
     r2 = list()
 
+    # If no class is provided, use a dummy constant class for all samples
     if labels is None:
         labels = np.ones(z.shape[0])
 
     c = np.unique(labels)
 
-    for i in c :
+    for i in c:
         mask = labels == i
         z_c = z[mask]
         y_c = y[mask]
 
+        # Rescale data
         z_scaler = StandardScaler(with_std=True)
         y_scaler = StandardScaler(with_std=True)
 
@@ -169,18 +204,31 @@ def latent_regression(z, y, labels=None):
     return np.mean(r2)
 
 
-def score(id, model_list, dataset_list):
+def score(id_, models, datasets):
+    """Score embeddings of an experiment.
+
+    Compute R^2 (see radial_regression and latent_regression) to assess if the embeddings are faithful to the latent
+    factors. Compute reconstruction to assess how invertible the embeddings are.
+
+    Save all results in a csv file under ./results/id_
+
+    Args:
+        id_(int): ID of the experiment.
+        models(List[str]): List of model names.
+        datasets(List[str]): List of dataset names.
+
+    """
     path = os.path.join(
         os.path.dirname(__file__),
-        os.path.join('..', '..', 'results', id)
+        os.path.join('..', '..', 'results', id_)
     )
     # File to save data
     file_name = os.path.join(path, 'metrics.csv')
 
-    # Loogers for results
-    book = Book(models=model_list,
-                datasets=dataset_list,
-                metrics=DIS_METRICS)
+    # Object to keep track of results
+    book = Book(models=models,
+                datasets=datasets,
+                metrics=METRICS)
 
     # Iterate over all embeddings
     for subdir, dirs, files in os.walk(os.path.join(path, 'embeddings')):
@@ -189,9 +237,9 @@ def score(id, model_list, dataset_list):
             dir_list = os.path.normpath(subdir).split(os.sep)
             model, dataset = dir_list[-2:]
 
-            if dataset not in dataset_list:
+            if dataset not in datasets:
                 continue
-            if model not in model_list:
+            if model not in models:
                 continue
 
             filepath = subdir + os.sep + file
@@ -202,37 +250,26 @@ def score(id, model_list, dataset_list):
             run_seed = data['run_seed']
 
             # Score embedding
-
             # Score both splits
             for split in ('train', 'test'):
                 metrics = dict()
 
-                # Fit linear regressions on train split
+                # Fit linear regressions on a given split
                 X = getattr(src.data, dataset)(split=split, random_state=dataset_seed)
                 y = X.get_latents()
                 z = data[f'z_{split}']
 
-                if dataset in ['Teapot', 'RotatedDigits', 'COIL100']:
+                if dataset in ['Teapot', 'RotatedDigits']:
+                    # Angle-based regression for circular manifolds
                     r2 = radial_regression(z, *y.T)
                 elif dataset in ['UMIST']:
+                    # UMIST has a class-like structure that should be accounted for
                     labels = y[:, 0]
                     angles = y[:, 1:]
                     r2 = latent_regression(z, angles, labels=labels)
                 else:
                     r2 = latent_regression(z, y)
 
-                # X = getattr(src.data, dataset)(split=split, seed=dataset_seed)
-                # y_1, y_2 = X.get_source()  # Fetch ground truth
-
-                # if dataset == 'SwissRoll':
-                #     # The 'Slice' on Swiss Roll is out of distribution with different mean and variance.
-                #     # Rescale data based on test mean to avoid bias in the predictions.
-                #     z = z_scaler.fit_transform(data[f'z_{split}'])
-                #     y_1, y_2 = y_scaler.fit_transform(np.vstack((y_1, y_2)).T).T
-                # else:
-                #     z = z_scaler.transform(data[f'z_{split}'])
-                #     y_1, y_2 = y_scaler.transform(np.vstack((y_1, y_2)).T).T
-                #
                 rec_key = f'rec_{split}'
 
                 metrics.update({'R2': np.mean(r2)})
@@ -242,29 +279,6 @@ def score(id, model_list, dataset_list):
                 metrics.update({'fit_time': fit_time})
 
                 book.add_entry(model=model, dataset=dataset, run=run_seed, split=split, **metrics)
-
-            # for split in ('train', 'test'):
-            #     z = data[f'z_{split}']
-            #
-            #     X = getattr(src.data, dataset)(split='train', seed=dataset_seed)
-            #     y_1, y_2 = X.get_source()  # Fetch ground truth
-            #
-            #
-            #     if y_1 is not None and y_2 is not None:
-            #         # Compute metrics if dataset has 2D Ground truth
-            #         metrics = dis_metrics(y_1, y_2, *z.T)
-            #     elif y_1 is not None and y_2 is None:
-            #         # Compute metrics if dataset has 1D Ground truth
-            #         metrics = dis_metrics_1D(y_1, *z.T)
-            #     else:
-            #         # Dummy dict if no ground truth
-            #         metrics = dict(zip(DIS_METRICS, [None] * len(DIS_METRICS)))
-            #
-            #     rec_key = f'rec_{split}'
-            #
-            #     metrics.update({'reconstruction': data[rec_key]})
-            #
-            #     book.add_entry(model=model, dataset=dataset, run=run_seed, split=split, **metrics)
 
     # Save results
     df = book.get_df()
