@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 from scipy.io import loadmat
 
-from src.data.base import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
+from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
 
 EB_COMPONENTS = None  # PCA components for EB data. Set to none if all genes should be kept.
 

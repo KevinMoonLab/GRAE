@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from src.data.base import device
+from src.data.base_dataset import DEVICE  # Torch device
 
 '''
 Methods for calculating lower-dimensional persistent homology.
@@ -263,7 +263,7 @@ class TopoAELoss(nn.Module):
         super().__init__()
         self.topo_sig = TopologicalSignatureDistance(match_edges='symmetric')
         self.latent_norm = torch.nn.Parameter(data=torch.ones(1),
-                                              requires_grad=True).to(device)
+                                              requires_grad=True).to(DEVICE)
 
 
     def forward(self, x, latent):

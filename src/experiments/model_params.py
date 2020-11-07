@@ -16,8 +16,6 @@ epoch_dict = dict(  # Dataset specific arguments
 )
 
 # PHATE parameters for GRAE
-PHATE_DEFAULTS = dict(verbose=0, n_jobs=-1)
-
 PHATE_dict = dict(  # Dataset specific arguments
     SwissRoll=dict(knn=20, t=50),
     Faces=dict(knn=5, t=50),
@@ -29,11 +27,9 @@ PHATE_dict = dict(  # Dataset specific arguments
     UMIST=dict(knn=5, t=50),
 )
 
+# Update PHATE dict with epochs
 for key, d in PHATE_dict.items():
-    # Merge dicts and update with epochs
-    d.update(PHATE_DEFAULTS)
-    PHATE_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
-    PHATE_dict[key].update(epoch_dict[key])
+    d.update(epoch_dict[key])
 
 # UMAP parameters
 UMAP_DEFAULTS = dict(min_dist=.1)
@@ -54,8 +50,8 @@ GRAEUMAP_dict = dict()
 for key, d in UMAP_dict.items():
     # Merge defaults and specific and update with epochs
     d.update(UMAP_DEFAULTS)
-    GRAEUMAP_dict[key] = dict(embedder_args=d)  # Wrap under embedder argument
-    GRAEUMAP_dict[key].update(epoch_dict[key])
+    d.update(UMAP_dict[key])
+    d.update(epoch_dict[key])
 
 
 # Dict for Diffusion net

@@ -1,3 +1,4 @@
+"""Diffusion maps implementation from urishaham used in our implementation of Diffusion nets."""
 '''
 Created on Sep 1, 2016
 

@@ -5,25 +5,24 @@ from sklearn.neighbors import NearestNeighbors
 import numpy as np
 import scipy
 
-from src.models.models import BaseModel, AE, GRAE
-from src.models.topo import TopoAELoss, compute_distance_matrix
-from src.data.base import device
+from src.models.grae_models import AE, GRAE
+from src.models.base_model import BaseModel
+from src.models.external_tools.topological_loss import TopoAELoss, compute_distance_matrix
+from src.data.base_dataset import DEVICE
 
-from src.models import Diffusion as df
 from pydiffmap import diffusion_map as dm
-from sklearn.manifold import SpectralEmbedding
 from sklearn.neighbors import kneighbors_graph
 
 
 class UMAP(umap.UMAP, BaseModel):
     """Thin wrapper for UMAP to work with torch datasets."""
 
-    def fit(self, X):
-        x, _ = X.numpy()
+    def fit(self, x):
+        x, _ = x.numpy()
         super().fit(x)
 
-    def fit_transform(self, X):
-        x, _ = X.numpy()
+    def fit_transform(self, x):
+        x, _ = x.numpy()
         super().fit(x)
         return super().transform(x)
 
@@ -43,14 +42,14 @@ class GRAEUMAP(GRAE):
                          **kwargs)
 
 class TopoAE(AE):
-    """AE with topological loss. See topo.py"""
+    """AE with topological loss. See exeternal_tools/topological_loss.py"""
 
     def __init__(self, *, lam=100, **kwargs):
         super().__init__(**kwargs)
         self.lam = lam
         self.topo_loss = TopoAELoss()
 
-    def apply_loss(self, x, x_hat, z, idx):
+    def compute_loss(self, x, x_hat, z, idx):
         loss = self.criterion(x, x_hat) + self.lam * self.topo_loss(x, z)
 
         loss.backward()
@@ -74,13 +73,13 @@ class EAERMargin(AE):
 
         super().fit(x)
 
-    def apply_loss(self, x, x_hat, z, idx):
+    def compute_loss(self, x, x_hat, z, idx):
         if self.lam > 0:
             batch_d = compute_distance_matrix(z)
-            is_nb = torch.from_numpy(self.knn_graph[np.ix_(idx, idx)].toarray()).to(device)
+            is_nb = torch.from_numpy(self.knn_graph[np.ix_(idx, idx)].toarray()).to(DEVICE)
 
             # Dummy zeros
-            zero = torch.zeros(batch_d.shape).to(device)
+            zero = torch.zeros(batch_d.shape).to(DEVICE)
 
             d = is_nb * batch_d + (1 - is_nb) * (torch.max(zero, self.margin - batch_d)) ** 2
 
@@ -125,10 +124,10 @@ class DiffusionNet(AE):
                                               neighbor_params=neighbor_params)
         dmap = mydmap.fit_transform(x_np)
 
-        self.z = torch.tensor(dmap).float().to(device)
+        self.z = torch.tensor(dmap).float().to(DEVICE)
 
-        self.Evectors = torch.from_numpy(mydmap.evecs).float().to(device)
-        self.Evalues = torch.from_numpy(mydmap.evals).float().to(device)
+        self.Evectors = torch.from_numpy(mydmap.evecs).float().to(DEVICE)
+        self.Evalues = torch.from_numpy(mydmap.evals).float().to(DEVICE)
 
         # Potential matrix sparse form
         P = scipy.sparse.coo_matrix(mydmap.L.todense())
@@ -137,7 +136,7 @@ class DiffusionNet(AE):
         i = torch.LongTensor(indices)
         v = torch.FloatTensor(values)
 
-        self.P = torch.sparse.FloatTensor(i, v).float().to(device)
+        self.P = torch.sparse.FloatTensor(i, v).float().to(DEVICE)
 
         # Identity matrix sparse 
         I_n = scipy.sparse.coo_matrix(np.eye(self.batch_size))
@@ -146,10 +145,10 @@ class DiffusionNet(AE):
         i = torch.LongTensor(indices)
         v = torch.FloatTensor(values)
 
-        self.I_t = torch.sparse.FloatTensor(i, v).float().to(device)
+        self.I_t = torch.sparse.FloatTensor(i, v).float().to(DEVICE)
         super().fit(x)
 
-    def apply_loss(self, x, x_hat, z, idx):
+    def compute_loss(self, x, x_hat, z, idx):
         if self.lam > 0:
 
             rec_loss = self.criterion(x, x_hat)
@@ -189,7 +188,7 @@ class LaplacianAE(AE):
         W = np.multiply(np.exp(-D.toarray() / 1), D.toarray() != 0)
         # W = scipy.sparse.csr_matrix(W)
 
-        self.W = torch.tensor(W).float().to(device)
+        self.W = torch.tensor(W).float().to(DEVICE)
 
         # Use whole dataset as batch, as in the paper
         self.batch_size = len(x)
@@ -202,7 +201,7 @@ class LaplacianAE(AE):
         # print(L.shape)
         return torch.sum(L)
 
-    def apply_loss(self, x, x_hat, z, idx):
+    def compute_loss(self, x, x_hat, z, idx):
 
         if self.lam > 0:
 

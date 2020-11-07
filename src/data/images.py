@@ -14,7 +14,7 @@ import requests
 from skimage.transform import resize
 from skimage.util import random_noise
 
-from src.data.base import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
+from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
 
 
 # Set to False to flatten all data tensors.

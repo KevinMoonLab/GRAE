@@ -7,7 +7,7 @@ import scipy
 import numpy as np
 from sklearn import datasets
 
-from src.data.base import BaseDataset, SEED, FIT_DEFAULT
+from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT
 
 # Default number of samples for synthetic manifolds
 SAMPLE = 10000

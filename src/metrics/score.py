@@ -270,7 +270,7 @@ def score(id_, models, datasets):
                 else:
                     r2 = latent_regression(z, y)
 
-                rec_key = f'rec_{split}'
+                rec_key = f'MSE_{split}'
 
                 metrics.update({'R2': np.mean(r2)})
                 metrics.update({'reconstruction': data[rec_key]})

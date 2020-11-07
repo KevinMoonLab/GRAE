@@ -18,8 +18,8 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # Fit models
 # Models and Datasets for experiment
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['GRAE', 'AE']
-DATASETS = ['SwissRoll', 'Faces', 'RotatedDigits']
+MODELS = ['GRAE']
+DATASETS = ['Faces', 'Teapot']
 
 RUNS = 1  # Number of runs to average
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
@@ -94,3 +94,9 @@ grid_plot(ID, MODELS, DATASETS, run=1)
 score(ID, MODELS, DATASETS)
 metrics_train = show_metrics(ID, 'train', MODELS, DATASETS)
 metrics_test = show_metrics(ID, 'test', MODELS, DATASETS)
+
+print('Train metrics :')
+print(metrics_train)
+
+print('\nTest metrics :')
+print(metrics_test)
