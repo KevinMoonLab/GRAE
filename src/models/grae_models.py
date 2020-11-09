@@ -254,7 +254,7 @@ class AE(BaseModel):
         Args:
             x(torch.Tensor): Input batch.
             x_hat(torch.Tensor): Reconstructed batch (decoder output).
-            z(torch.Tensor): Batch embedding (encoder ouput).
+            z(torch.Tensor): Batch embedding (encoder output).
             idx(torch.Tensor): Indices of samples in batch.
 
         """
@@ -274,7 +274,7 @@ class AE(BaseModel):
         """Transform data.
 
         Args:
-            x(BaseDataset): Dataset to fit and transform.
+            x(BaseDataset): Dataset to transform.
         Returns:
             ndarray: Embedding of x.
 
@@ -315,7 +315,7 @@ class GRAEBase(AE):
         """Init.
 
         Args:
-            embedder(BaseModel): Manifold learning model.
+            embedder(BaseModel): Manifold learning class constructor.
             embedder_params(dict): Parameters to pass to embedder.
             lam(float): Regularization factor.
             relax(bool): Use the lambda relaxation scheme. Set to false to use constant lambda throughout training.
@@ -326,7 +326,9 @@ class GRAEBase(AE):
         self.lam_original = lam  # Needed to compute the lambda relaxation
         self.target_embedding = None  # To store the target embedding as computed by embedder
         self.relax = relax
-        self.embedder = embedder(**embedder_params)  # BaseModel object to compute target embedding.
+        self.embedder = embedder(random_state=self.random_state,
+                                 n_components=self.n_components,
+                                 **embedder_params)  # To compute target embedding.
 
     def fit(self, x):
         """Fit model to data.
@@ -349,7 +351,7 @@ class GRAEBase(AE):
         Args:
             x(torch.Tensor): Input batch.
             x_hat(torch.Tensor): Reconstructed batch (decoder output).
-            z(torch.Tensor): Batch embedding (encoder ouput).
+            z(torch.Tensor): Batch embedding (encoder output).
             idx(torch.Tensor): Indices of samples in batch.
 
         """
@@ -392,10 +394,16 @@ class GRAE(GRAEBase):
             t(int): Number of steps of the diffusion operator. Can also be set to 'auto' to select t according to the
             knee point in the Von Neumann Entropy of the diffusion operator
             relax(bool): Use the lambda relaxation scheme. Set to false to use constant lambda throughout training.
-            **kwargs: All other arguments with keys are passed to the GRAEBase parent class.
+            **kwargs: All other kehyword arguments are passed to the GRAEBase parent class.
         """
-        super().__init__(lam=lam, relax=relax, embedder=PHATE,
-                         embedder_params=dict(knn=knn, t=t, verbose=0, n_jobs=-1), **kwargs)
+        super().__init__(lam=lam,
+                         relax=relax,
+                         embedder=PHATE,
+                         embedder_params=dict(knn=knn,
+                                              t=t,
+                                              verbose=0,
+                                              n_jobs=-1),
+                         **kwargs)
 
 
 class SmallGRAE(GRAE):

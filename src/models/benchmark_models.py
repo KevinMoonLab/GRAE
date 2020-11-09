@@ -1,87 +1,178 @@
 """Other models to compare GRAE."""
+import numpy as np
+import scipy
 import torch
 import umap
 from sklearn.neighbors import NearestNeighbors
-import numpy as np
-import scipy
+from pydiffmap import diffusion_map as dm
 
-from src.models.grae_models import AE, GRAE
+from src.models.grae_models import AE, GRAEBase
 from src.models.base_model import BaseModel
 from src.models.external_tools.topological_loss import TopoAELoss, compute_distance_matrix
 from src.data.base_dataset import DEVICE
 
-from pydiffmap import diffusion_map as dm
-from sklearn.neighbors import kneighbors_graph
-
 
 class UMAP(umap.UMAP, BaseModel):
-    """Thin wrapper for UMAP to work with torch datasets."""
+    """Wrapper for UMAP to work with torch datasets."""
 
     def fit(self, x):
+        """Fit model to data.
+
+        Args:
+            x(BaseDataset): Dataset to fit.
+
+        """
         x, _ = x.numpy()
         super().fit(x)
 
     def fit_transform(self, x):
+        """Fit model and transform data.
+
+        Args:
+            x(BaseDataset): Dataset to fit and transform.
+
+        Returns:
+            ndarray: Embedding of x.
+
+        """
         x, _ = x.numpy()
         super().fit(x)
         return super().transform(x)
 
-    def transform(self, X):
-        x, _ = X.numpy()
+    def transform(self, x):
+        """Transform new data to the low dimensional space.
+
+        Args:
+            x(BaseDataset): Dataset to transform.
+        Returns:
+            ndarray: Embedding of x.
+
+        """
+        x, _ = x.numpy()
         return super().transform(x)
 
-    def reconstruct(self, X):
-        return self.inverse_transform(self.transform(X))
+    def reconstruct(self, x):
+        """Transform and inverse x.
 
-class GRAEUMAP(GRAE):
-    def __init__(self, *, lam=100, embedder_args=dict(), **kwargs):
+        Args:
+            x(BaseDataset): Data to transform and reconstruct.
+
+        Returns:
+            ndarray: Reconstructions of x.
+
+        """
+        return self.inverse_transform(self.transform(x))
+
+
+class GRAEUMAP(GRAEBase):
+    """GRAE with UMAP regularization."""
+
+    def __init__(self, *, lam=100, n_neighbors=15, min_dist=.1, relax=True, **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Regularization factor.
+            n_neighbors(int): The size of local neighborhood (in terms of number of neighboring sample points) used for
+            manifold approximation.
+            min_dist(float):  The effective minimum distance between embedded points.
+            relax(bool): Use the lambda relaxation scheme. Set to false to use constant lambda throughout training.
+            **kwargs: All other arguments with keys are passed to the GRAEBase parent class.
+        """
         super().__init__(lam=lam,
                          embedder=UMAP,
-                         embedder_args=embedder_args,
-                         relax=True,
+                         embedder_params=dict(n_neighbors=n_neighbors, min_dist=min_dist),
+                         relax=relax,
                          **kwargs)
 
+
 class TopoAE(AE):
-    """AE with topological loss. See exeternal_tools/topological_loss.py"""
+    """Topological Autoencoder.
+
+    From the paper of the same name. See https://arxiv.org/abs/1906.00722.
+
+    See external_tools/topological_loss.py for the loss definition. Adapted from their source code.
+    """
 
     def __init__(self, *, lam=100, **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Regularization factor.
+            **kwargs: All other keyword arguments are passed to the AE parent class.
+        """
         super().__init__(**kwargs)
         self.lam = lam
         self.topo_loss = TopoAELoss()
 
     def compute_loss(self, x, x_hat, z, idx):
+        """Compute topological loss over a batch.
+
+        Args:
+            x(torch.Tensor): Input batch.
+            x_hat(torch.Tensor): Reconstructed batch (decoder output).
+            z(torch.Tensor): Batch embedding (encoder output).
+            idx(torch.Tensor): Indices of samples in batch.
+
+        """
         loss = self.criterion(x, x_hat) + self.lam * self.topo_loss(x, z)
 
         loss.backward()
 
 
 class EAERMargin(AE):
+    """AE with margin-based regularization in the latent space.
+
+    As presented in the EAER paper. See https://link.springer.com/chapter/10.1007/978-3-642-40994-3_14
+
+    Note : The algorithm was adapted to support mini-batch training and SGD.
+    """
+
     def __init__(self, *, lam=100, n_neighbors=10, margin=1, **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Regularization factor.
+            n_neighbors(int): The size of local neighborhood used to build the neighborhood graph.
+            margin(float):  Margin used for the max-margin loss.
+            **kwargs: All other keyword arguments are passed to the AE parent class.
+        """
         super().__init__(**kwargs)
         self.lam = lam
         self.n_neighbors = n_neighbors
         self.margin = margin
+        self.knn_graph = None  # Will store the neighborhood graph of the data
 
     def fit(self, x):
+        """Fit model to data.
+
+        Args:
+            x(BaseDataset): Dataset to fit.
+
+        """
         x_np, _ = x.numpy()
         nbrs = NearestNeighbors(n_neighbors=self.n_neighbors, algorithm='ball_tree').fit(x_np)
 
         self.knn_graph = nbrs.kneighbors_graph()
 
-        # Use whole dataset as batch, as in the paper
-        # self.batch_size = len(x)
-
         super().fit(x)
 
     def compute_loss(self, x, x_hat, z, idx):
+        """Compute max-margin loss over a batch.
+
+        Args:
+            x(torch.Tensor): Input batch.
+            x_hat(torch.Tensor): Reconstructed batch (decoder output).
+            z(torch.Tensor): Batch embedding (encoder output).
+            idx(torch.Tensor): Indices of samples in batch.
+
+        """
         if self.lam > 0:
             batch_d = compute_distance_matrix(z)
             is_nb = torch.from_numpy(self.knn_graph[np.ix_(idx, idx)].toarray()).to(DEVICE)
 
-            # Dummy zeros
-            zero = torch.zeros(batch_d.shape).to(DEVICE)
+            clipped_dist = torch.clamp(input=self.margin - batch_d, min=0)
 
-            d = is_nb * batch_d + (1 - is_nb) * (torch.max(zero, self.margin - batch_d)) ** 2
+            d = is_nb * batch_d + (1 - is_nb) * clipped_dist ** 2
 
             margin_loss = torch.sum(d)
 
@@ -93,7 +184,25 @@ class EAERMargin(AE):
 
 
 class DiffusionNet(AE):
+    """Diffusion nets.
+
+    As presented in https://arxiv.org/abs/1506.07840
+
+    Note: Subsampling was required to run this model on our benchmarks.
+
+    """
+
     def __init__(self, *, lam=100, n_neighbors=100, alpha=1, epsilon='bgh', subsample=None, **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Regularization factor for the EV constraint.
+            n_neighbors(int): The size of local neighborhood used to build the neighborhood graph.
+            alpha(float): Exponent to be used for the left normalization in constructing the diffusion map.
+            epsilon(Any):  Method for choosing the epsilon. See scikit-learn NearestNeighbors class for details.
+            subsample(int): Number of points to sample from the dataset before fitting.
+            **kwargs: All other keyword arguments are passed to the AE parent class.
+        """
         super().__init__(**kwargs)
         self.lam = lam
         self.n_neighbors = n_neighbors
@@ -102,19 +211,20 @@ class DiffusionNet(AE):
         self.subsample = subsample
 
     def fit(self, x):
-        # DiffusionNet do not support mini-batches. Subspample data if needed to fit in memory
+        """Fit model to data.
+
+        Args:
+            x(BaseDataset): Dataset to fit.
+
+        """
+        # DiffusionNet do not support mini-batches. Subsample data if needed to fit in memory
         if self.subsample is not None:
             x = x.random_subset(self.subsample, random_state=self.random_state)
 
-        # Use whole dataset as batch, as in the paper
+        # Use whole dataset (after possible subsampling) as batch, as in the paper
         self.batch_size = len(x)
 
         x_np, _ = x.numpy()
-
-        # K_mat = df.ComputeLBAffinity(x_np, self.n_neighbors, sig=0.1)   # Laplace-Beltrami affinity: D^-1 * K * D^-1
-        # self.P  = torch.from_numpy(df.makeRowStoch(K_mat)).to(device)                     # markov matrix 
-        # Evectors, Evalues = df.Diffusion(K_mat, 
-        #                                             nEigenVals = self.n_components+1)  # eigenvalues and eigenvectors
 
         neighbor_params = {'n_jobs': -1, 'algorithm': 'ball_tree'}
         mydmap = dm.DiffusionMap.from_sklearn(n_evecs=self.n_components,
@@ -149,70 +259,27 @@ class DiffusionNet(AE):
         super().fit(x)
 
     def compute_loss(self, x, x_hat, z, idx):
-        if self.lam > 0:
+        """Compute diffusion-based loss.
 
+        Args:
+            x(torch.Tensor): Input batch.
+            x_hat(torch.Tensor): Reconstructed batch (decoder output).
+            z(torch.Tensor): Batch embedding (encoder output).
+            idx(torch.Tensor): Indices of samples in batch.
+
+        """
+        if self.lam > 0:
             rec_loss = self.criterion(x, x_hat)
             coord_loss = self.lam * self.criterion(z, self.z[idx])
             Ev_loss = (torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[0] *
-                                                                            self.I_t.to_dense()),
-                                                                           z[:, 0].view(self.batch_size, 1)),
-                                                                  2)) + torch.mean(
+                                                      self.I_t.to_dense()),
+                                                     z[:, 0].view(self.batch_size, 1)),
+                                            2)) + torch.mean(
                 torch.pow(torch.mm((self.P.to_dense() - self.Evalues[1] *
                                     self.I_t.to_dense()),
                                    z[:, 1].view(self.batch_size, 1)), 2)))
 
             loss = rec_loss + coord_loss + self.lam * Ev_loss
-            # print(rec_loss)
-            # print(coord_loss)
-            # print(Ev_loss)
-        else:
-
-            loss = self.criterion(x, x_hat)
-
-        loss.backward()
-
-
-class LaplacianAE(AE):
-    def __init__(self, *, lam=1, n_neighbors=100, alpha=0, **kwargs):
-        super().__init__(**kwargs)
-        self.lam = lam
-        self.n_neighbors = n_neighbors
-        self.alpha = alpha
-
-    def fit(self, x):
-        x_np, _ = x.numpy()
-
-        D = kneighbors_graph(x_np, mode='distance',
-                             n_neighbors=self.n_neighbors)
-
-        W = np.multiply(np.exp(-D.toarray() / 1), D.toarray() != 0)
-        # W = scipy.sparse.csr_matrix(W)
-
-        self.W = torch.tensor(W).float().to(DEVICE)
-
-        # Use whole dataset as batch, as in the paper
-        self.batch_size = len(x)
-        super().fit(x)
-
-    def coord_loss(self, z):
-        e = torch.pow(compute_distance_matrix(z), 2)
-        # print(e.shape)
-        L = torch.mul(self.W, e)
-        # print(L.shape)
-        return torch.sum(L)
-
-    def compute_loss(self, x, x_hat, z, idx):
-
-        if self.lam > 0:
-
-            rec_loss = self.criterion(x, x_hat)
-            # print('Reconstruction')
-            # print(rec_loss.item())
-
-            loss = 0 * rec_loss + 1e6 * self.coord_loss(z)
-            # print('Total loss')
-            # print(loss.item())
-
         else:
 
             loss = self.criterion(x, x_hat)

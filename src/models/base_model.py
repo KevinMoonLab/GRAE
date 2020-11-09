@@ -32,13 +32,13 @@ class BaseModel:
         self.fit(x)
         return self.transform(x)
 
-    def transform(self, X):
+    def transform(self, x):
         """Transform data.
 
         If model is a dimensionality reduction method, such as an Autoencoder, this should return the embedding of x.
 
         Args:
-            X(BaseDataset): Dataset to fit and transform.
+            X(BaseDataset): Dataset to transform.
         Returns:
             ndarray: Embedding of X.
 
