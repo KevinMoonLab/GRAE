@@ -18,8 +18,8 @@ from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
 # Fit models
 # Models and Datasets for experiment
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['GRAE']
-DATASETS = ['Faces', 'Teapot']
+MODELS = ['GRAE', 'GRAEUMAP']
+DATASETS = ['Faces', 'Teapot', 'RotatedDigits']
 
 RUNS = 1  # Number of runs to average
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,

@@ -337,7 +337,7 @@ class GRAEBase(AE):
             x(BaseDataset): Dataset to fit.
 
         """
-        print('Fitting GRAE...')
+        print('       Fitting GRAE...')
         print('       Fitting manifold learning embedding...')
         emb = scipy.stats.zscore(self.embedder.fit_transform(x))  # Normalize embedding
         self.target_embedding = torch.from_numpy(emb).float().to(DEVICE)

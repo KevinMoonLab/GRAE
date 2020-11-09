@@ -1,6 +1,6 @@
 """Model arguments for the main.py experiments."""
 # Some arg dicts that will be reused by various models
-DEFAULT_EPOCHS = 4  # First default for most datasets
+DEFAULT_EPOCHS = 800  # First default for most datasets
 DEFAULT_EPOCHS_L = DEFAULT_EPOCHS // 4   # Second default for larger datasets
 
 # Epoch dict used by all AE-based models
@@ -45,13 +45,24 @@ UMAP_dict = dict(  # Dataset specific arguments
     UMIST=dict(n_neighbors=15),
 )
 
-GRAEUMAP_dict = dict()
+GRAEUMAP_dict = dict(
+    SwissRoll=dict(),
+    Faces=dict(),
+    RotatedDigits=dict(),
+    Tracking=dict(),
+    Teapot=dict(),
+    Embryoid=dict(),
+    IPSC=dict(),
+    UMIST=dict(),
+)
 
-for key, d in UMAP_dict.items():
+for key, d in GRAEUMAP_dict.items():
     # Merge defaults and specific and update with epochs
     d.update(UMAP_DEFAULTS)
     d.update(UMAP_dict[key])
     d.update(epoch_dict[key])
+
+print(GRAEUMAP_dict)
 
 
 # Dict for Diffusion net
