@@ -132,7 +132,7 @@ class AE(BaseModel):
                  conv_dims=CONV_DIMS,
                  conv_fc_dims=CONV_FC_DIMS,
                  noise=0):
-        """Init.
+        """Init. Arguments specify the architecture of the encoder. Decoder will use the reversed architecture.
 
         Args:
             lr(float): Learning rate.
