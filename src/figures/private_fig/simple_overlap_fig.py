@@ -21,7 +21,7 @@ def ftwo(x):
 
 def ftwo_inv(z):
     z = z[:, 0]
-    return np.vstack((z * np.where(z % 2 < 1, -1, 1), z)).T
+    return np.vstack((z * np.where((z+.5) % 2 < 1, -1, 1), z)).T
 
 
 landmarks = np.array([
@@ -41,12 +41,12 @@ fig, ax = plt.subplots(2, 3, figsize=(3 * 3.5, 2 * 3.5))
 grid = [(fone, fone_inv), (ftwo, ftwo_inv)]
 
 for i, (f, inv) in enumerate(grid):
-    domain = np.linspace(-6, 6, 1000, endpoint=False)
+    domain = np.linspace(-6.45, 6.5, 1000, endpoint=False)
     m = manifold(domain)
     ax[i, 0].scatter(*m.T, s=1)
     ax[i, 0].scatter(*landmarks.T, s=100, c=colors)
     # ax[i, 1].set_yticks([])
-    ax[i, 0].set_xlim((-7, 7))
+    ax[i, 0].set_xlim((-7.5, 7.5))
     ax[i, 0].set_ylim((-1, 7))
 
 
@@ -61,21 +61,21 @@ for i, (f, inv) in enumerate(grid):
         ax[i, 1].scatter(*np.flip(z_l).T, s=100,  c=np.flip(colors))
         ax[i, 1].set_xticks([])
 
-    ax[i, 1].set_xlim((-7, 7))
+    ax[i, 1].set_xlim((-7.5, 7.5 ))
     ax[i, 1].set_ylim((-1, 7))
 
     m_prime = inv(z)
     l_prime = inv(z_l)
     ax[i, 2].scatter(*m_prime.T, s=1)
     ax[i, 2].scatter(*l_prime.T, s=100, c=colors)
-    ax[i, 2].set_xlim((-7, 7))
+    ax[i, 2].set_xlim((-7.5, 7.5))
     ax[i, 2].set_ylim((-1, 7))
     # ax[i, 2].set_yticks([])
 
 
 ax[0, 0].set_title('Manifold')
-ax[0, 0].set_xticks([])
-ax[0, 2].set_xticks([])
-ax[0, 1].set_title('Latent space')
+# ax[0, 0].set_xticks([])
+# ax[0, 2].set_xticks([])
+ax[0, 1].set_title('1D Latent space')
 ax[0, 2].set_title('Reconstruction')
 plt.show()
