@@ -230,6 +230,7 @@ def score(id_, models, datasets):
                 datasets=datasets,
                 metrics=METRICS)
 
+
     # Iterate over all embeddings
     for subdir, dirs, files in os.walk(os.path.join(path, 'embeddings')):
 
@@ -246,6 +247,21 @@ def score(id_, models, datasets):
             print(f'Scoring {filepath}...')
             data = load_dict(filepath)
 
+            n_components = data['z_train'].shape[1]
+
+            # Hot fix to work with the final embeddings despite changes changes to the new code
+            if 'rec_train' in data:
+                # Compatibility with old format
+                data['MSE_train'] = data['rec_train']
+                data['MSE_test'] = data['rec_test']
+
+            run_no = int(os.path.splitext(file)[0].split('_')[1])
+
+            if dataset == 'RotatedDigits' and model == 'DiffusionNet' and run_no in [8, 9]:
+                # Two runs from the final DiffusionNet dataset failed, do not score them
+                continue
+            # End of hot fix
+
             dataset_seed = data['dataset_seed']
             run_seed = data['run_seed']
 
@@ -254,25 +270,30 @@ def score(id_, models, datasets):
             for split in ('train', 'test'):
                 metrics = dict()
 
-                # Fit linear regressions on a given split
-                X = getattr(src.data, dataset)(split=split, random_state=dataset_seed)
-                y = X.get_latents()
-                z = data[f'z_{split}']
-
-                if dataset in ['Teapot', 'RotatedDigits']:
-                    # Angle-based regression for circular manifolds
-                    r2 = radial_regression(z, *y.T)
-                elif dataset in ['UMIST']:
-                    # UMIST has a class-like structure that should be accounted for
-                    labels = y[:, 0]
-                    angles = y[:, 1:]
-                    r2 = latent_regression(z, angles, labels=labels)
-                else:
-                    r2 = latent_regression(z, y)
-
                 rec_key = f'MSE_{split}'
 
-                metrics.update({'R2': np.mean(r2)})
+                # Fit linear regressions on a given split
+                if n_components == 2:
+                    # Only fit a regression of latent factors for 2D embeddings
+                    X = getattr(src.data, dataset)(split=split, random_state=dataset_seed)
+                    y = X.get_latents()
+                    z = data[f'z_{split}']
+
+                    if dataset in ['Teapot', 'RotatedDigits']:
+                        # Angle-based regression for circular manifolds
+                        r2 = radial_regression(z, *y.T)
+                    elif dataset in ['UMIST']:
+                        # UMIST has a class-like structure that should be accounted for
+                        labels = y[:, 0]
+                        angles = y[:, 1:]
+                        r2 = latent_regression(z, angles, labels=labels)
+                    else:
+                        r2 = latent_regression(z, y)
+
+                    metrics.update({'R2': np.mean(r2)})
+                else:
+                    metrics.update({'R2': None})
+
                 metrics.update({'reconstruction': data[rec_key]})
 
                 fit_time = data['fit_time'] if split == 'train' else np.nan

@@ -13,13 +13,13 @@ import src.models
 from src.experiments.utils import save_dict
 from src.metrics import score
 from src.figures import grid_plot, show_metrics
-from src.experiments.model_params import DEFAULTS, DATASET_PARAMS
+from src.experiments.model_params import DEFAULTS, DATASET_PARAMS, N_COMPONENTS
 
 # Fit models
 # Models and Datasets for experiment
 # Specific model arguments can be changed in the model_params.py module
-MODELS = ['GRAE', 'GRAEUMAP']
-DATASETS = ['Faces', 'Teapot', 'RotatedDigits']
+MODELS = ['GRAE', 'AE']
+DATASETS = ['Faces', 'Teapot', 'RotatedDigits', 'Tracking', 'UMIST']
 
 RUNS = 1  # Number of runs to average
 RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
@@ -66,7 +66,7 @@ for model in MODELS:
             if dataset in DATASET_PARAMS[model]:
                 params.update(DATASET_PARAMS[model][dataset])
 
-            m = getattr(src.models, model)(random_state=RANDOM_STATES[j], **params)
+            m = getattr(src.models, model)(n_components=N_COMPONENTS, random_state=RANDOM_STATES[j], **params)
 
             # Benchmark fit time
             fit_start = time.time()
@@ -90,7 +90,8 @@ for model in MODELS:
             save_dict(obj, os.path.join(target, f'run_{j + 1}.pkl'))
 
 # Score embeddings, plot embeddings and generate latex tables
-grid_plot(ID, MODELS, DATASETS, run=1)
+if N_COMPONENTS == 2:
+    grid_plot(ID, MODELS, DATASETS, run=1)
 score(ID, MODELS, DATASETS)
 metrics_train = show_metrics(ID, 'train', MODELS, DATASETS)
 metrics_test = show_metrics(ID, 'test', MODELS, DATASETS)

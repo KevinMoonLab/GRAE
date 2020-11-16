@@ -1,7 +1,8 @@
 """Model arguments for the main.py experiments."""
 # Some arg dicts that will be reused by various models
+N_COMPONENTS = 10
 DEFAULT_EPOCHS = 800  # First default for most datasets
-DEFAULT_EPOCHS_L = DEFAULT_EPOCHS // 4   # Second default for larger datasets
+DEFAULT_EPOCHS_L = DEFAULT_EPOCHS // 4  # Second default for larger datasets
 
 # Epoch dict used by all AE-based models
 epoch_dict = dict(  # Dataset specific arguments
@@ -62,8 +63,6 @@ for key, d in GRAEUMAP_dict.items():
     d.update(UMAP_dict[key])
     d.update(epoch_dict[key])
 
-print(GRAEUMAP_dict)
-
 
 # Dict for Diffusion net
 subsample_dict = dict(
@@ -93,7 +92,6 @@ for key, d in DN_dict.items():
     DN_dict[key].update(subsample_dict[key])
     DN_dict[key].update(epoch_dict[key])
 
-
 # Model parameters to use for experiments
 # Make sure the dict key matches the class name
 # Those arguments will be used every time the model is initialized
@@ -103,7 +101,7 @@ DEFAULTS = {
     'SmallGRAE': dict(),
     'LargeGRAE': dict(),
     'UMAP': dict(),
-    'GRAEUMAP' : dict(),
+    'GRAEUMAP': dict(),
     'DiffusionNet': dict(),
     'EAERMargin': dict(),
     'TopoAE': dict(),
@@ -116,9 +114,8 @@ DATASET_PARAMS = {
     'SmallGRAE': PHATE_dict,
     'LargeGRAE': PHATE_dict,
     'UMAP': UMAP_dict,
-    'GRAEUMAP' : GRAEUMAP_dict,
+    'GRAEUMAP': GRAEUMAP_dict,
     'DiffusionNet': DN_dict,
     'EAERMargin': epoch_dict,
     'TopoAE': epoch_dict,
 }
-
