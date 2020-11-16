@@ -77,7 +77,9 @@ class BaseModel:
             raise Exception('Can only plot 2D embeddings.')
 
         if title is not None:
-            plt.title(title)
+            plt.title(title, fontsize=30)
+            plt.xticks([])
+            plt.yticks([])
 
         if x_test is None:
             plt.scatter(*z_train.T, c=y_train, cmap=cmap, s=s)

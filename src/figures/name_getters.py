@@ -9,6 +9,7 @@ model_name = dict(UMAP='UMAP',
                   LargeGRAE='λ = 100',
                   DiffusionNet='Diffusion Nets',
                   GRAE='GRAE',
+                  GRAE_100='GRAE',
                   GRAEUMAP='GRAE (UMAP)',
                   AE='AE')
 
