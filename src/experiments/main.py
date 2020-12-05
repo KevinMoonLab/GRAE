@@ -13,7 +13,7 @@ import src.models
 from src.experiments.utils import save_dict
 from src.metrics import score
 from src.figures import grid_plot, show_metrics
-from src.experiments.model_params import DEFAULTS, DATASET_PARAMS, N_COMPONENTS
+from src.experiments.model_params import DEFAULTS, DATASET_PARAMS, N_COMPONENTS, RANDOM_STATES
 
 # Fit models
 # Models and Datasets for experiment
@@ -22,9 +22,6 @@ MODELS = ['GRAE', 'AE']
 DATASETS = ['Faces', 'Teapot', 'RotatedDigits', 'Tracking', 'UMIST']
 
 RUNS = 1  # Number of runs to average
-RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
-                 9369, 28478, 4624, 29114, 41915, 6467, 4216, 16025, 34823,
-                 29854, 23853]  # 20 random states. Add more if needed.
 
 
 # Create PATH variable and directory to save embeddings

@@ -3,6 +3,9 @@
 N_COMPONENTS = 10
 DEFAULT_EPOCHS = 800  # First default for most datasets
 DEFAULT_EPOCHS_L = DEFAULT_EPOCHS // 4  # Second default for larger datasets
+RANDOM_STATES = [36087, 63286, 52270, 10387, 40556, 52487, 26512, 28571, 33380,
+                 9369, 28478, 4624, 29114, 41915, 6467, 4216, 16025, 34823,
+                 29854, 23853]  # 20 random states. Add more if needed.
 
 # Epoch dict used by all AE-based models
 epoch_dict = dict(  # Dataset specific arguments

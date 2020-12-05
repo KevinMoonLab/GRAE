@@ -17,26 +17,33 @@ METRICS = ['fit_time', 'R2', 'reconstruction']
 class Book:
     """Object to save metrics and associated data.
 
-    Add entries with add_entry and return a final dataframe with get_df.
+    Entries are appended to a buffer, which can be appended to csv_file_path when self.save_to_csv is called.
     """
 
-    def __init__(self, datasets, models, metrics):
+    def __init__(self, csv_file_path, datasets, models, metrics):
         """Init.
 
         Args:
+            csv_file_path(str): Csv path.
             datasets(List[str]): List of allowed dataset names.
             models(List[str]): List of allowed model names.
             metrics(List[str]): List of allowed metrics
         """
-        self.col = ['model', 'dataset', 'run', 'split'] + metrics  # DataFrame columns
-        self.log = list()  # List of lists to store entries
+        self.csv_file_path = csv_file_path
+        self.buffer = list()
+        self.signature = ['model', 'dataset', 'run', 'split']
+        self.col = self.signature + metrics  # DataFrame columns
         self.models = models
         self.datasets = datasets
-        self.splits = ('train', 'test')
+        self.splits = ('train', 'test', 'none')
         self.metrics = metrics
 
+        # Create empty csv file
+        df = pd.DataFrame(columns=self.col)
+        df.to_csv(self.csv_file_path, index=False)
+
     def add_entry(self, model, dataset, run, split, **kwargs):
-        """Add entry to book.
+        """Add entry to csv.
 
         Args:
             model(str): Model name.
@@ -57,7 +64,13 @@ class Book:
         if len(entry) != len(self.col):
             raise Exception('Entry size is wrong.')
 
-        self.log.append(entry)
+        self.buffer.append(entry)
+
+    def save_to_csv(self):
+        """Flush buffer to csv file."""
+        df = pd.DataFrame.from_records(self.buffer, columns=self.col)
+        self.buffer = list() # Clear buffer
+        df.to_csv(self.csv_file_path, mode='a', header=False, index=False)
 
     def check(self, model, dataset, split, kwargs):
         """Check values of arguments.
@@ -95,7 +108,9 @@ class Book:
             DataFrame: Results.
 
         """
-        return pd.DataFrame.from_records(self.log, columns=self.col)
+        if len(self.buffer) > 0:
+            self.save_to_csv()
+        return pd.read_csv(header=0, index_col=self.signature)
 
 
 def radial_regression(cartesian_emb, labels, angles):
@@ -226,7 +241,8 @@ def score(id_, models, datasets):
     file_name = os.path.join(path, 'metrics.csv')
 
     # Object to keep track of results
-    book = Book(models=models,
+    book = Book(csv_file_path=file_name,
+                models=models,
                 datasets=datasets,
                 metrics=METRICS)
 
@@ -302,5 +318,4 @@ def score(id_, models, datasets):
                 book.add_entry(model=model, dataset=dataset, run=run_seed, split=split, **metrics)
 
     # Save results
-    df = book.get_df()
-    df.to_csv(file_name)
+    book.save_to_csv()

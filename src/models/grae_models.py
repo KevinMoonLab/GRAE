@@ -21,7 +21,7 @@ EPOCHS = 200
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
 CONV_DIMS = [32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
-PROC_THRESHOLD = 20000  # Procrustes threshold (see PHATE)
+PROC_THRESHOLD = 2000  # Procrustes threshold (see PHATE)
 
 
 class PHATE(phate.PHATE, BaseModel):
