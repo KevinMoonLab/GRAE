@@ -21,7 +21,7 @@ EPOCHS = 200
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
 CONV_DIMS = [32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
-PROC_THRESHOLD = 2000  # Procrustes threshold (see PHATE)
+PROC_THRESHOLD = 20000  # Procrustes threshold (see PHATE)
 
 
 class PHATE(phate.PHATE, BaseModel):
@@ -64,7 +64,7 @@ class PHATE(phate.PHATE, BaseModel):
         if x.shape[0] < self.proc_threshold:
             result = super().fit_transform(x)
         else:
-            print('            Fitting procrustes...')
+            # print('            Fitting procrustes...')
             result = self.fit_transform_procrustes(x)
         return result
 
@@ -166,6 +166,8 @@ class AE(BaseModel):
         self.conv_dims = conv_dims
         self.conv_fc_dims = conv_fc_dims
         self.noise = noise
+        self.comet_exp = None
+        self.x_train = None
 
     def fit(self, x):
         """Fit model to data.
@@ -174,6 +176,7 @@ class AE(BaseModel):
             x(BaseDataset): Dataset to fit.
 
         """
+        self.x_train = x
 
         # Reproducibility
         torch.manual_seed(self.random_state)
@@ -214,13 +217,17 @@ class AE(BaseModel):
 
         self.loader = self.get_loader(x)
 
-        for epoch in range(self.epochs):
-            print(f'            Epoch {epoch}...')
+        # Get first metrics
+        self.log_metrics(0)
+
+        for epoch in range(1, self.epochs + 1):
+            # print(f'            Epoch {epoch}...')
             for batch in self.loader:
                 self.optimizer.zero_grad()
                 self.train_body(batch)
                 self.optimizer.step()
 
+            self.log_metrics(epoch)
             self.end_epoch(epoch)
 
     def get_loader(self, x):
@@ -262,13 +269,38 @@ class AE(BaseModel):
         loss.backward()
 
     def end_epoch(self, epoch):
-        """Method called at the end of every training epoch. For children class.
+        """Method called at the end of every training epoch.
 
         Args:
             epoch(int): Current epoch.
 
         """
         pass
+
+    def log_metrics(self, epoch):
+        """Log metrics to comet if comet experiment was set.
+
+        Args:
+            epoch(int): Current epoch.
+
+        """
+        if self.comet_exp is not None:
+
+            # Compute MSE over train set
+            self.torch_module.eval()
+            sum_loss = 0
+
+            for batch in self.loader:
+                data, _, idx = batch  # No need for labels. Training is unsupervised
+                data = data.to(DEVICE)
+
+                x_hat, z = self.torch_module(data)  # Forward pass
+                sum_loss += self.criterion(data, x_hat).item()
+
+            with self.comet_exp.train():
+                self.comet_exp.log_metric('MSE_loss', sum_loss/len(self.loader.dataset), epoch=epoch)
+
+            self.torch_module.train()
 
     def transform(self, x):
         """Transform data.
@@ -337,12 +369,12 @@ class GRAEBase(AE):
             x(BaseDataset): Dataset to fit.
 
         """
-        print('       Fitting GRAE...')
-        print('       Fitting manifold learning embedding...')
+        # print('       Fitting GRAE...')
+        # print('       Fitting manifold learning embedding...')
         emb = scipy.stats.zscore(self.embedder.fit_transform(x))  # Normalize embedding
         self.target_embedding = torch.from_numpy(emb).float().to(DEVICE)
 
-        print('       Fitting encoder & decoder...')
+        # print('       Fitting encoder & decoder...')
         super().fit(x)
 
     def compute_loss(self, x, x_hat, z, idx):
@@ -361,6 +393,39 @@ class GRAEBase(AE):
             loss = self.criterion(x, x_hat)
 
         loss.backward()
+
+    def log_metrics(self, epoch):
+        """Log metrics to comet if comet experiment was set.
+
+        Args:
+            epoch(int): Current epoch.
+
+        """
+        if self.comet_exp is not None:
+
+            # Compute MSE and Geometric Loss over train set
+            self.torch_module.eval()
+            sum_loss = 0
+            sum_geo_loss = 0
+
+            for batch in self.loader:
+                data, _, idx = batch  # No need for labels. Training is unsupervised
+                data = data.to(DEVICE)
+
+                x_hat, z = self.torch_module(data)  # Forward pass
+                sum_loss += self.criterion(data, x_hat).item()
+                sum_geo_loss += self.criterion(z, self.target_embedding[idx]).item()
+
+            with self.comet_exp.train():
+                mse_loss = sum_loss/len(self.loader.dataset)
+                geo_loss = sum_geo_loss/len(self.loader.dataset)
+                self.comet_exp.log_metric('MSE_loss', mse_loss, epoch=epoch)
+                self.comet_exp.log_metric('geo_loss', geo_loss, epoch=epoch)
+                self.comet_exp.log_metric('GRAE_loss', mse_loss + self.lam * geo_loss, epoch=epoch)
+                if self.lam * geo_loss > 0:
+                    self.comet_exp.log_metric('geo_on_MSE', self.lam * geo_loss/mse_loss, epoch=epoch)
+
+            self.torch_module.train()
 
     def end_epoch(self, epoch):
         """Method called at the end of every training epoch.

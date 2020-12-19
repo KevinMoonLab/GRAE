@@ -13,10 +13,7 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 FIT_DEFAULT = .8  # Default train split ratio
 SEED = 42  # Default seed for splitting
 
-BASEPATH = os.path.join(
-    os.path.dirname(__file__),
-    os.path.join('..', '..', 'data', 'processed')
-)
+BASEPATH = os.path.join(os.getcwd(), 'data', 'processed')
 
 # Create BASEPATH if needed
 if not os.path.exists(BASEPATH):
@@ -25,6 +22,7 @@ if not os.path.exists(BASEPATH):
 
 class FromNumpyDataset(Dataset):
     """Torch Dataset Wrapper for x ndarray with no target."""
+
     def __init__(self, x):
         """Create torch wraper dataset form simple ndarray.
 
@@ -65,6 +63,7 @@ class BaseDataset(Dataset):
     """Template class for all datasets in the project.
 
     All datasets should subclass BaseDataset, which contains built-in splitting utilities."""
+
     def __init__(self, x, y, split, split_ratio, random_state, labels=None):
         """Init.
 
@@ -112,9 +111,9 @@ class BaseDataset(Dataset):
         data = self.data.numpy().reshape((n, -1))
 
         if idx is None:
-            return data, self.targets
+            return data, self.targets.numpy()
         else:
-            return data[idx], self.targets[idx]
+            return data[idx], self.targets[idx].numpy()
 
     def get_split(self, x, y, split, split_ratio, random_state, labels=None):
         """Split dataset.
@@ -175,9 +174,43 @@ class BaseDataset(Dataset):
             latents = None
         return NoSplitBaseDataset(self.data[sample_mask], self.targets[sample_mask], latents)
 
+    def validation_split(self, fold, ratio=.15):
+        """Randomly subsample validation split in self.
+
+        Return both train split and validation split as two different BaseDataset objects.
+
+        Args:
+            fold(int): Fold number.
+            ratio(float): Ratio to allocate to validation split.
+
+        Returns:
+            (tuple) tuple containing:
+                x_train(BaseDataset): Train set.
+                x_val(BaseDataset): Val set.
+
+        """
+        # Up to 10 folds
+        FOLD_SEEDS = [4837, 2963, 1504, 6387, 5865, 9969, 5313, 2421, 2524, 5511]
+
+        np.random.seed(FOLD_SEEDS[fold])
+        sample_mask = np.random.choice(len(self), int(ratio * len(self)), replace=False)
+        val_mask = np.full(len(self), False, dtype=bool)
+        val_mask[sample_mask] = True
+        train_mask = np.logical_not(val_mask)
+
+        if self.latents is not None:
+            x_train = NoSplitBaseDataset(self.data[train_mask], self.targets[train_mask], self.latents[train_mask])
+            x_val = NoSplitBaseDataset(self.data[val_mask], self.targets[val_mask], self.latents[val_mask])
+        else:
+            x_train = NoSplitBaseDataset(self.data[train_mask], self.targets[train_mask], None)
+            x_val = NoSplitBaseDataset(self.data[val_mask], self.targets[val_mask], None)
+
+        return x_train, x_val
+
 
 class NoSplitBaseDataset(BaseDataset):
     """BaseDataset class when splitting is not required and x and y are already torch tensors."""
+
     def __init__(self, x, y, latents):
         """Init.
 

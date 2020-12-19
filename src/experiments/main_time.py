@@ -1,6 +1,7 @@
 """Script to benchmark fit and transform time performance on dataset of increasing size.
 
-   Results are saved under the results folder/{generated-ID}.csv
+   Results are saved under the results folder time_experiment/{generated-ID}.csv
+   TODO: Update for new Comet integration.
 """
 import os
 import datetime
@@ -14,11 +15,16 @@ import src.models
 from src.experiments.model_params import DEFAULTS, DATASET_PARAMS, N_COMPONENTS, RANDOM_STATES
 from src.metrics import Book
 
-# Create PATH variable and directory to save embeddings
+# Experiment parameters
 RUNS = 3
 MODELS = ['GRAE', 'AE', 'UMAP']
-DATASETS = ['IPSC']
+DATASETS = ['Tracking']
+N_SPACE = np.arange(800, 2000 + 1, step=200)
 
+# Tracked variable (in addition to model, dataset, run no & split, which are tracked by default)
+METRICS = ['n_sample', 'fit_time', 'transform_time', 'rec_time', 'MSE_train', 'MSE_test']
+
+# Create PATH variable and directory to save embeddings
 # Generate ID and save results in the results folder
 ID = str(int((datetime.datetime.now() - datetime.datetime(2020, 8, 1)).total_seconds() * 1e6))  # Create ID with time
 PATH = os.path.join(
@@ -30,12 +36,9 @@ if not os.path.exists(PATH):
 
 FILE_PATH = os.path.join(PATH, ID + '.csv')
 
-N_SPACE = np.arange(2000, 100000 + 1, step=2000)
 
 # Insert warm up run, otherwise first run always seem to take more time
 N_SPACE = np.insert(N_SPACE, 0, 50)
-
-METRICS = ['n_sample', 'fit_time', 'transform_time', 'rec_time', 'MSE_train', 'MSE_test']
 
 # Object to save results
 book = Book(csv_file_path=FILE_PATH, datasets=DATASETS, models=MODELS, metrics=METRICS)

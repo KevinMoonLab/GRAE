@@ -21,7 +21,7 @@ def save_dict(di_, filename_):
     """Handy function to save dictionaries.
 
     Args:
-        di_(str): Path.
+        di_(dict): Dict to save.
         filename_(str): Name of file.
     """
     with open(filename_, 'wb') as f:

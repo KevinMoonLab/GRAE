@@ -1,1 +1,1 @@
-from src.metrics.score import score, Book
+from src.metrics.score import score_model

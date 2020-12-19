@@ -57,7 +57,7 @@ class BaseModel:
         raise NotImplementedError()
 
     def fit_plot(self, x_train, x_test=None, cmap='jet', s=15, title=None):
-        """Fit x_train and show a 2D scatter plot of x_train and x_test.
+        """Fit x_train and show a 2D scatter plot of x_train (and possibly x_test).
 
         If x_test is provided, x_train points will be smaller and grayscale and x_test points will be colored.
 
@@ -69,7 +69,28 @@ class BaseModel:
             title(str): Figure title. Set to None for no title.
 
         """
-        z_train = self.fit_transform(x_train)
+        self.plot(x_train, x_test, cmap, s, title, fit=True)
+
+    def plot(self, x_train, x_test=None, cmap='jet', s=15, title=None, comet_exp=None, fit=False):
+        """Plot x_train (and possibly x_test) and show a 2D scatter plot of x_train (and possibly x_test).
+
+        If x_test is provided, x_train points will be smaller and grayscale and x_test points will be colored.
+        Will log figure to comet if Experiment object is provided. Otherwise, plt.show() is called.
+
+        Args:
+            x_train(BaseDataset): Data to fit and plot.
+            x_test(BaseDatasset): Data to plot. Set to None to only plot x_train.
+            cmap(str): Matplotlib colormap.
+            s(float): Scatter plot marker size.
+            title(str): Figure title. Set to None for no title.
+            comet_exp(Experiment): Log.
+            fit(bool): Whether model should be trained on x_train.
+
+        """
+        if not fit:
+            z_train = self.transform(x_train)
+        else:
+            z_train = self.fit_transform(x_train)
 
         y_train = x_train.targets.numpy()
 
@@ -89,7 +110,12 @@ class BaseModel:
             y_test = x_test.targets.numpy()
             plt.scatter(*z_train.T, c='grey', s=s / 10, alpha=.2)
             plt.scatter(*z_test.T, c=y_test, cmap=cmap, s=s)
-        plt.show()
+
+        if comet_exp is not None:
+            comet_exp.log_figure(figure=plt)
+            plt.clf()
+        else:
+            plt.show()
 
     def reconstruct(self, x):
         """Transform and inverse x.
@@ -103,19 +129,19 @@ class BaseModel:
         """
         return self.inverse_transform(self.transform(x))
 
-    def score(self, x, split_name):
-        """Compute the MSE on x.
+    def score(self, x):
+        """Compute embedding of x, MSE on x and performance time of transform and inverse transform on x.
 
         Args:
             x(BaseDataset): Dataset to score.
-            split_name(str): Split name. Either 'train' or 'test'.
 
         Returns:
-            dict[str, ndarray or float]:
-                z_{split_name}(ndarray): Data embedding.
-                MSE_{split_name}(float): Reconstruction MSE error.
-                rec_time_{split_name}(float): Reconstruction time in seconds.
-                rec_time_{split_name}(float): Transform time in seconds.
+            (tuple) tuple containing:
+                z(ndarray): Data embedding.
+                metrics(dict[float]):
+                    MSE(float): Reconstruction MSE error.
+                    rec_time(float): Reconstruction time in seconds.
+                    transform_time(float): Transform time in seconds.
         """
         n = len(x)
 
@@ -134,9 +160,17 @@ class BaseModel:
         x, _ = x.numpy()
         MSE = mean_squared_error(x.reshape((n, -1)), x_hat.reshape((n, -1)))
 
-        return {
-            f'z_{split_name}': z,
-            f'MSE_{split_name}': MSE,
-            f'transform_time_{split_name}': transform_time,
-            f'rec_time_{split_name}': rec_time,
+        return z, {
+            'MSE': MSE,
+            'transform_time': transform_time,
+            'rec_time': rec_time,
         }
+
+    def set_comet(self, exp):
+        """Attach comet experiment to model.
+
+        Args:
+            exp(Experiment): Comet experiment.
+
+        """
+        self.comet_exp = exp

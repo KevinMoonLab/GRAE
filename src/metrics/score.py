@@ -1,116 +1,11 @@
-"""Routine to score embeddings produced by the main experiment script."""
-import pandas as pd
-import os
-
+"""Routine to score embeddings."""
 import numpy as np
 from sklearn.linear_model import Lasso
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import pearsonr
 
-import src.data
-from src.experiments.utils import load_dict
-
 # Metrics to compute
 METRICS = ['fit_time', 'R2', 'reconstruction']
-
-
-class Book:
-    """Object to save metrics and associated data.
-
-    Entries are appended to a buffer, which can be appended to csv_file_path when self.save_to_csv is called.
-    """
-
-    def __init__(self, csv_file_path, datasets, models, metrics):
-        """Init.
-
-        Args:
-            csv_file_path(str): Csv path.
-            datasets(List[str]): List of allowed dataset names.
-            models(List[str]): List of allowed model names.
-            metrics(List[str]): List of allowed metrics
-        """
-        self.csv_file_path = csv_file_path
-        self.buffer = list()
-        self.signature = ['model', 'dataset', 'run', 'split']
-        self.col = self.signature + metrics  # DataFrame columns
-        self.models = models
-        self.datasets = datasets
-        self.splits = ('train', 'test', 'none')
-        self.metrics = metrics
-
-        # Create empty csv file
-        df = pd.DataFrame(columns=self.col)
-        df.to_csv(self.csv_file_path, index=False)
-
-    def add_entry(self, model, dataset, run, split, **kwargs):
-        """Add entry to csv.
-
-        Args:
-            model(str): Model name.
-            dataset(str): Dataset name.
-            run(int): Run number.
-            split(str): Split name ('train' or 'test').
-            **kwargs(Dict[str, float]): Metric values. Key should be the metric name as provided in self.metrics.
-
-        """
-        # Proof read entry
-        self.check(model, dataset, split, kwargs)
-
-        metrics_ordered = [kwargs[k] for k in self.metrics]
-
-        signature = [model, dataset, run, split]
-        entry = signature + metrics_ordered
-
-        if len(entry) != len(self.col):
-            raise Exception('Entry size is wrong.')
-
-        self.buffer.append(entry)
-
-    def save_to_csv(self):
-        """Flush buffer to csv file."""
-        df = pd.DataFrame.from_records(self.buffer, columns=self.col)
-        self.buffer = list() # Clear buffer
-        df.to_csv(self.csv_file_path, mode='a', header=False, index=False)
-
-    def check(self, model, dataset, split, kwargs):
-        """Check values of arguments.
-
-        Args:
-            model(str): Model name.
-            dataset(str): Dataset name.
-            split(str): Split name ('train' or 'test').
-            kwargs(Dict[str, float]): Metric values. Key should be the metric name as provided in self.metrics.
-
-        Raises:
-            ValueError : If arguments are not in the lists declared in the init method.
-
-        """
-        if model not in self.models:
-            raise ValueError('Invalid model name.')
-
-        if dataset not in self.datasets:
-            raise ValueError('Invalid dataset name.')
-
-        if split not in self.splits:
-            raise ValueError('Invalid split name.')
-
-        if len(kwargs.keys()) != len(self.metrics):
-            raise ValueError('Wrong number of metrics.')
-
-        for key in kwargs.keys():
-            if key not in self.metrics:
-                raise ValueError(f'Trying to add undeclared metric {key}')
-
-    def get_df(self):
-        """Return all results accumulated in self.log.
-
-        Returns:
-            DataFrame: Results.
-
-        """
-        if len(self.buffer) > 0:
-            self.save_to_csv()
-        return pd.read_csv(header=0, index_col=self.signature)
 
 
 def radial_regression(cartesian_emb, labels, angles):
@@ -219,103 +114,48 @@ def latent_regression(z, y, labels=None):
     return np.mean(r2)
 
 
-def score(id_, models, datasets):
-    """Score embeddings of an experiment.
-
-    Compute R^2 (see radial_regression and latent_regression) to assess if the embeddings are faithful to the latent
-    factors. Compute reconstruction to assess how invertible the embeddings are.
-
-    Save all results in a csv file under ./results/id_
+def score_model(dataset_name, model, dataset, mse_only=False):
+    """Compute embeding of dataset with model. Return embedding and some performance metrics.
 
     Args:
-        id_(int): ID of the experiment.
-        models(List[str]): List of model names.
-        datasets(List[str]): List of dataset names.
+        dataset_name(str): Name of dataset.
+        model(BaseModel): Fitted model.
+        dataset(BaseDataset): Dataset to embed and score.
+        mse_only(bool): Set to False to compute only MSE. Useful for lightweight computations during
+        hyperparameter search.
+
+    Returns:
+        (tuple) tuple containing:
+            z(ndarray): Data embedding.
+            metrics(dict[float]): Dict of metrics.
 
     """
-    path = os.path.join(
-        os.path.dirname(__file__),
-        os.path.join('..', '..', 'results', id_)
-    )
-    # File to save data
-    file_name = os.path.join(path, 'metrics.csv')
+    metrics = dict()
 
-    # Object to keep track of results
-    book = Book(csv_file_path=file_name,
-                models=models,
-                datasets=datasets,
-                metrics=METRICS)
+    # Compute embedding and MSE
+    z, rec_metrics = model.score(dataset)
+    metrics.update(rec_metrics)
 
+    n_components = z.shape[1]
 
-    # Iterate over all embeddings
-    for subdir, dirs, files in os.walk(os.path.join(path, 'embeddings')):
+    # Fit linear regressions on a given split
+    if n_components == 2 and not mse_only:
+        # Only fit a regression of latent factors for 2D embeddings
+        y = dataset.get_latents()
 
-        for file in files:
-            dir_list = os.path.normpath(subdir).split(os.sep)
-            model, dataset = dir_list[-2:]
+        if dataset_name in ['Teapot', 'RotatedDigits']:
+            # Angle-based regression for circular manifolds
+            r2 = radial_regression(z, *y.T)
+        elif dataset_name in ['UMIST']:
+            # UMIST has a class-like structure that should be accounted for
+            labels = y[:, 0]
+            angles = y[:, 1:]
+            r2 = latent_regression(z, angles, labels=labels)
+        else:
+            r2 = latent_regression(z, y)
 
-            if dataset not in datasets:
-                continue
-            if model not in models:
-                continue
+        metrics.update({'R2': np.mean(r2)})
+    else:
+        metrics.update({'R2': None})
 
-            filepath = subdir + os.sep + file
-            print(f'Scoring {filepath}...')
-            data = load_dict(filepath)
-
-            n_components = data['z_train'].shape[1]
-
-            # Hot fix to work with the final embeddings despite changes changes to the new code
-            if 'rec_train' in data:
-                # Compatibility with old format
-                data['MSE_train'] = data['rec_train']
-                data['MSE_test'] = data['rec_test']
-
-            run_no = int(os.path.splitext(file)[0].split('_')[1])
-
-            if dataset == 'RotatedDigits' and model == 'DiffusionNet' and run_no in [8, 9]:
-                # Two runs from the final DiffusionNet dataset failed, do not score them
-                continue
-            # End of hot fix
-
-            dataset_seed = data['dataset_seed']
-            run_seed = data['run_seed']
-
-            # Score embedding
-            # Score both splits
-            for split in ('train', 'test'):
-                metrics = dict()
-
-                rec_key = f'MSE_{split}'
-
-                # Fit linear regressions on a given split
-                if n_components == 2:
-                    # Only fit a regression of latent factors for 2D embeddings
-                    X = getattr(src.data, dataset)(split=split, random_state=dataset_seed)
-                    y = X.get_latents()
-                    z = data[f'z_{split}']
-
-                    if dataset in ['Teapot', 'RotatedDigits']:
-                        # Angle-based regression for circular manifolds
-                        r2 = radial_regression(z, *y.T)
-                    elif dataset in ['UMIST']:
-                        # UMIST has a class-like structure that should be accounted for
-                        labels = y[:, 0]
-                        angles = y[:, 1:]
-                        r2 = latent_regression(z, angles, labels=labels)
-                    else:
-                        r2 = latent_regression(z, y)
-
-                    metrics.update({'R2': np.mean(r2)})
-                else:
-                    metrics.update({'R2': None})
-
-                metrics.update({'reconstruction': data[rec_key]})
-
-                fit_time = data['fit_time'] if split == 'train' else np.nan
-                metrics.update({'fit_time': fit_time})
-
-                book.add_entry(model=model, dataset=dataset, run=run_seed, split=split, **metrics)
-
-    # Save results
-    book.save_to_csv()
+    return z, metrics
