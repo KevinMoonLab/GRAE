@@ -21,7 +21,7 @@ CUSTOM_TAG = sys.argv[1] if len(sys.argv) > 1 else 'no_tag'
 # Get Schedule
 PATH = os.path.join(
     os.path.dirname(__file__),
-    os.path.join('..', '..', 'exp_schedule')
+    os.path.join('..', 'exp_schedule')
 )
 
 # Read schedule and only keep experiment tagged with current job
