@@ -159,7 +159,6 @@ class IPSC(BaseDataset):
 
         super().__init__(x, y, split, split_ratio, random_state)
 
-
     def get_latents(self):
         # Only 1D ground truth
         return self.targets.numpy().reshape((-1, 1))

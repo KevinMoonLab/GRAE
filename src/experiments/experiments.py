@@ -129,6 +129,9 @@ def fit_test(exp_params, data_path, write_path, custom_tag=None):
     file.close()
     os.remove(file_name)
 
+    # Log marker to mark successful experiment
+    exp.log_other('success', 1)
+
 
 def fit_validate(exp_params, k, data_path, custom_tag=None):
     """Fit model and compute metrics on train and validation set. Intended for hyperparameter search.
@@ -179,3 +182,6 @@ def fit_validate(exp_params, k, data_path, custom_tag=None):
 
         # Log train metrics
         exp.log_metrics(val_metrics)
+
+    # Log marker to mark successful experiment
+    exp.log_other('success', 1)

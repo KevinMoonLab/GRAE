@@ -34,8 +34,8 @@ parser.add_argument('--write_path',
                     type=str,
                     default=os.getcwd())
 parser.add_argument('--validation',
-                    help='Compute metrics on validation split. Turn off logging of metrics and assets for faster '
-                         'training.',
+                    help='Compute metrics on validation split. Turn off logging of assets and metrics after every epoch '
+                         'for faster training.',
                     action="store_true")
 
 args = parser.parse_args()
@@ -44,7 +44,7 @@ args = parser.parse_args()
 # Get Schedule
 # Read schedule and only keep experiment tagged with current job
 schedule = pd.read_csv(args.schedule_path)
-schedule = schedule.loc[schedule['job'] == args.job].drop('job', 1)
+schedule = schedule.loc[schedule['job'] == args.job].drop(['job', 'estimated_time'], 1)
 
 # Launch experiments
 for _, exp_params in schedule.iterrows():
@@ -54,7 +54,13 @@ for _, exp_params in schedule.iterrows():
         n_fold = 1 if dataset_name in ['IPSC', 'SwissRoll'] else 3  # k-fold validation on small datasets
 
         for i in range(n_fold):
-            fit_validate(params, custom_tag=args.comet_tag, data_path=args.data_path, k=i)
+            try:
+                fit_validate(params, custom_tag=args.comet_tag, data_path=args.data_path, k=i)
+            except Exception as e:
+                print(e)
     else:
-        fit_test(params, custom_tag=args.comet_tag, data_path=args.data_path, write_path=args.write_path)
+        try:
+            fit_test(params, custom_tag=args.comet_tag, data_path=args.data_path, write_path=args.write_path)
+        except Exception as e:
+            print(e)
 
