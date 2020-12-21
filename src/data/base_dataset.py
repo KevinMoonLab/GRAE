@@ -13,12 +13,7 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 FIT_DEFAULT = .8  # Default train split ratio
 SEED = 42  # Default seed for splitting
 
-BASEPATH = os.path.join(os.getcwd(), 'data', 'processed')
-
-# Create BASEPATH if needed
-if not os.path.exists(BASEPATH):
-    os.makedirs(BASEPATH)
-
+DEFAULT_PATH = os.path.join(os.getcwd(), 'data')
 
 class FromNumpyDataset(Dataset):
     """Torch Dataset Wrapper for x ndarray with no target."""
@@ -87,6 +82,7 @@ class BaseDataset(Dataset):
         self.data = x.float()
         self.targets = y.float()  # One target variable. Used mainly for coloring.
         self.latents = None  # Arbitrary number of ground truth variables. Used for computing metrics.
+
 
     def __getitem__(self, index):
         return self.data[index], self.targets[index], index

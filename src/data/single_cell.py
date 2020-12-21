@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 from scipy.io import loadmat
 
-from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
+from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
 
 EB_COMPONENTS = None  # PCA components for EB data. Set to none if all genes should be kept.
 
@@ -22,17 +22,18 @@ class Embryoid(BaseDataset):
 
     """
 
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
 
         Args:
             split(str, optional): Name of split.
             split_ratio(float, optional): Ratio to use for train split. Test split ratio is 1 - split_ratio.
             random_state(int, optional): To set random_state values for reproducibility.
+            data_path(str, optional): Data directory.
         """
 
         # Download and preprocess dataset if needed
-        self.root = os.path.join(BASEPATH, 'Embryoid')
+        self.root = os.path.join(data_path, 'Embryoid')
 
         if not os.path.isdir(os.path.join(self.root, "scRNAseq", "T0_1A")):
             os.mkdir(self.root)
@@ -128,10 +129,10 @@ class IPSC(BaseDataset):
     Single-cell mass cytometry data showing iPSC reprogramming of mouse embryonic fibroblasts. 220,450 cells and
     33 markers.
 
-    Data should be added manually to data/processed/Ipsc before calling the class.
+    Data should be added manually to data/Ipsc before calling the class.
 
     """
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, n_subsample=None):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, n_subsample=None, data_path=DEFAULT_PATH):
         """Init.
 
         Args:
@@ -140,7 +141,7 @@ class IPSC(BaseDataset):
             random_state(int, optional): To set random_state values for reproducibility.
             n_subsample(int, optional): Number of samples to draw from the dataset. Defaults to None (entire dataset).
         """
-        file_path = os.path.realpath(os.path.join(BASEPATH, 'Ipsc', 'ipscData.mat'))
+        file_path = os.path.realpath(os.path.join(data_path, 'Ipsc', 'ipscData.mat'))
         if not os.path.exists(file_path):
             raise Exception(f'{file_path} should be added manually before running experiments.')
 

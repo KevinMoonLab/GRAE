@@ -7,7 +7,7 @@ import scipy
 import numpy as np
 from sklearn import datasets
 
-from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT
+from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
 
 # Default number of samples for synthetic manifolds
 SAMPLE = 10000
@@ -48,7 +48,7 @@ class SCurve(BaseDataset):
     """Standard SCurve dataset."""
 
     def __init__(self, n_samples=SAMPLE, split='none', split_ratio=FIT_DEFAULT,
-                 random_state=SEED):
+                 random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
 
         Args:
@@ -56,6 +56,7 @@ class SCurve(BaseDataset):
             split(str, optional): Name of split. See BaseDataset.
             split_ratio(float, optional): Ratio of train split. See BaseDataset.
             random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Unused. Only to share same signature with other datasets.
         """
         x, y = datasets.make_s_curve(n_samples=n_samples, random_state=random_state)
 
@@ -70,7 +71,7 @@ class Roll(BaseDataset):
     """
 
     def __init__(self, n_samples=SAMPLE, split='none', split_ratio=FIT_DEFAULT,
-                 random_state=SEED, factor=6, sli_points=250):
+                 random_state=SEED, factor=6, sli_points=250, data_path=DEFAULT_PATH):
         """Init.
 
         Args:
@@ -81,6 +82,7 @@ class Roll(BaseDataset):
             factor(int, optional): Stretch factor for the roll.
             sli_points(int, optional): Remove sli_points closest to origin on the "length" dimension and use them as the
             test split. Note: Not used by this class, see SwissRoll. Roll uses uniform sampling to determine the splits.
+            data_path(str, optional): Unused. Only to share same signature with other datasets.
         """
         x, y = datasets.make_swiss_roll(n_samples=n_samples, random_state=random_state)
 
@@ -142,7 +144,7 @@ class SwissRoll(Roll):
     This is the dataset used in the GRAE paper."""
 
     def __init__(self, n_samples=SAMPLE, sli_points=250, split='none',
-                 split_ratio=FIT_DEFAULT, random_state=SEED):
+                 split_ratio=FIT_DEFAULT, random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
 
         Args:
@@ -152,6 +154,7 @@ class SwissRoll(Roll):
             random_state(int, optional): Random seed. See BaseDataset.
             sli_points(int, optional): Remove sli_points closest to origin on the "length" dimension and use them as
             the test split.
+            data_path(str, optional): Unused. Only to share same signature with other datasets.
         """
 
         super().__init__(n_samples, split, split_ratio=split_ratio, random_state=random_state, sli_points=sli_points)
@@ -251,13 +254,14 @@ class Spheres(BaseDataset):
     """Small high dimensional spheres in a big sphere, as presented in the Topological Autoencoders paper."""
 
     def __init__(self, split='none', split_ratio=FIT_DEFAULT,
-                 random_state=SEED):
+                 random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
 
         Args:
             split(str, optional): Name of split. See BaseDataset.
             split_ratio(float, optional): Ratio of train split. See BaseDataset.
             random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Unused. Only to share same signature with other datasets.
         """
         x, y = create_sphere_dataset(seed=random_state)
 

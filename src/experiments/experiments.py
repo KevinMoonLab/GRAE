@@ -5,6 +5,7 @@ Everytime fit, fit_test and fit_validate are called, one experiment is logged in
 """
 import os
 import time
+import copy
 
 from comet_ml import Experiment
 
@@ -33,6 +34,9 @@ def parse_params(exp_params):
     if not all(name in exp_params for name in ('model_name', 'dataset_name', 'random_state')):
         raise Exception('Experiment should at least specify model, dataset and seed.')
 
+    # Copy parameters
+    exp_params = copy.deepcopy(exp_params)
+
     # Extract main keys
     model_name = exp_params.pop('model_name')
     dataset_name = exp_params.pop('dataset_name')
@@ -49,7 +53,7 @@ def parse_params(exp_params):
 # def fit(exp_params):
 
 
-def fit_test(exp_params, custom_tag=None):
+def fit_test(exp_params, data_path, write_path, custom_tag=None):
     """Fit model and compute metrics on both train and test sets.
 
     Also log plot and embeddings to comet.
@@ -57,6 +61,8 @@ def fit_test(exp_params, custom_tag=None):
     Args:
         exp_params(dict): Parameter dict. Should at least have keys model_name, dataset_name & random_state. Other
         keys are assumed to be model parameters.
+        data_path(str): Data directory.
+        write_path(str): Where temp files can be written.
         custom_tag(str): Custom tag for Comet experiment.
 
     """
@@ -72,8 +78,8 @@ def fit_test(exp_params, custom_tag=None):
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
 
     # Fetch and split dataset.
-    data_train = getattr(src.data, dataset_name)(split='train', random_state=random_state)
-    data_test = getattr(src.data, dataset_name)(split='test', random_state=random_state)
+    data_train = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
+    data_test = getattr(src.data, dataset_name)(split='test', random_state=random_state, data_path=data_path)
 
     # Model
     m = getattr(src.models, model_name)(random_state=random_state, **model_params)
@@ -109,7 +115,7 @@ def fit_test(exp_params, custom_tag=None):
         exp.log_metrics(test_metrics)
 
     # Log embedding as .npy file
-    file_name = f'emb_{model_name}_{dataset_name}.npy'
+    file_name = os.path.join(write_path, f'emb_{model_name}_{dataset_name}.npy')
     save_dict(dict(train_z=train_z,
                    train_y=train_y,
                    test_z=test_z,
@@ -124,7 +130,7 @@ def fit_test(exp_params, custom_tag=None):
     os.remove(file_name)
 
 
-def fit_validate(exp_params, k, custom_tag=None):
+def fit_validate(exp_params, k, data_path, custom_tag=None):
     """Fit model and compute metrics on train and validation set. Intended for hyperparameter search.
 
     Does not log any asset to comet, only metrics.
@@ -134,6 +140,7 @@ def fit_validate(exp_params, k, custom_tag=None):
         keys are assumed to be model parameters.
         k(int): Fold identifier.
         custom_tag(str): Custom tag for comet experiment.
+        data_path(str): Data directory.
 
     """
     # Comet experiment
@@ -149,7 +156,7 @@ def fit_validate(exp_params, k, custom_tag=None):
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
 
     # Fetch and split dataset.
-    data_train = getattr(src.data, dataset_name)(split='train', random_state=random_state)
+    data_train = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
     data_train, data_val = data_train.validation_split(k)
 
     # Model

@@ -155,7 +155,5 @@ def score_model(dataset_name, model, dataset, mse_only=False):
             r2 = latent_regression(z, y)
 
         metrics.update({'R2': np.mean(r2)})
-    else:
-        metrics.update({'R2': None})
 
     return z, metrics

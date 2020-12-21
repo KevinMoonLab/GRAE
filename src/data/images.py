@@ -14,7 +14,7 @@ import requests
 from skimage.transform import resize
 from skimage.util import random_noise
 
-from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, BASEPATH
+from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
 
 
 # Set to False to flatten all data tensors.
@@ -30,7 +30,7 @@ class Faces(BaseDataset):
     698 64 x 64 images of a rotating head. Ground truths are horizontal and vertical rotation angles.
 
     """
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
 
 
@@ -38,9 +38,10 @@ class Faces(BaseDataset):
             split(str, optional): Name of split. See BaseDataset.
             split_ratio(float, optional): Ratio of train split. See BaseDataset.
             random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Data directory.
         """
         self.url = 'http://stt3795.guywolf.org/Devoirs/D02/face_data.mat'
-        self.root = os.path.join(BASEPATH, 'Faces')
+        self.root = os.path.join(data_path, 'Faces')
 
         if not os.path.exists(self.root):
             os.mkdir(self.root)
@@ -82,7 +83,7 @@ class UMIST(BaseDataset):
     head based on the ordering of the pictures (roughly 0 to 90 degrees for each subject).
 
     """
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
 
 
@@ -90,9 +91,10 @@ class UMIST(BaseDataset):
             split(str, optional): Name of split. See BaseDataset.
             split_ratio(float, optional): Ratio of train split. See BaseDataset.
             random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Data directory.
         """
         self.url = 'https://cs.nyu.edu/~roweis/data/umist_cropped.mat'
-        self.root = os.path.join(BASEPATH, 'UMIST')
+        self.root = os.path.join(data_path, 'UMIST')
 
         if not os.path.exists(self.root):
             os.mkdir(self.root)
@@ -173,7 +175,7 @@ class Teapot(BaseDataset):
     Data and processing sourced from the maximum-variance-unfolding repository of calebralphs on GitHub.
 
     """
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
 
 
@@ -181,10 +183,11 @@ class Teapot(BaseDataset):
             split(str, optional): Name of split. See BaseDataset.
             split_ratio(float, optional): Ratio of train split. See BaseDataset.
             random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Data directory.
         """
         self.url = 'https://github.com/calebralphs/maximum-variance-unfolding/blob/master/Teapots.mat?raw=true'
 
-        self.root = os.path.join(BASEPATH, 'Teapot')
+        self.root = os.path.join(data_path, 'Teapot')
 
         if not os.path.exists(self.root):
             os.mkdir(self.root)
@@ -238,7 +241,7 @@ class Tracking(BaseDataset):
 
     Contains 2304 images.
     """
-    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
 
 
@@ -246,8 +249,9 @@ class Tracking(BaseDataset):
             split(str, optional): Name of split. See BaseDataset.
             split_ratio(float, optional): Ratio of train split. See BaseDataset.
             random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Data directory.
         """
-        self.root = os.path.join(BASEPATH, 'Tracking')
+        self.root = os.path.join(data_path, 'Tracking')
 
         # Generate data if it does not exist
         if not os.path.exists(self.root):
@@ -334,7 +338,7 @@ class Rotated(BaseDataset):
     """Pick n_images of n different classes and return a dataset with n_rotations for each image."""
 
     def __init__(self, fetcher, split='none', split_ratio=FIT_DEFAULT,
-                 random_state=SEED, n_images=3, n_rotations=360, max_degree=360):
+                 random_state=SEED, n_images=3, n_rotations=360, max_degree=360, data_path=DEFAULT_PATH):
         """Init.
 
         Args:
@@ -345,6 +349,7 @@ class Rotated(BaseDataset):
             n_images(int, optional): Number of base images to rotate.
             n_rotations(int, optional): Number of rotations for each image.
             max_degree(int, optional): Max rotation in degrees. The rotations span the interval [0, max_degree].
+            data_path(str, optional): Data directory.
         """
         self.max_degree = max_degree
 
@@ -354,7 +359,7 @@ class Rotated(BaseDataset):
             transforms.ToTensor(),
         ])
 
-        train = fetcher(root=BASEPATH, train=True, download=True,
+        train = fetcher(root=data_path, train=True, download=True,
                         transform=transforms_MNIST)
 
         X = train.data.detach().numpy().reshape(60000, 784)
@@ -413,7 +418,7 @@ class RotatedDigits(Rotated):
     1080 samples."""
 
     def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED,
-                 n_images=3, n_rotations=360):
+                 n_images=3, n_rotations=360, data_path=DEFAULT_PATH):
         """Init.
 
         Args:
@@ -422,9 +427,10 @@ class RotatedDigits(Rotated):
             random_state(int, optional): Random seed. See BaseDataset.
             n_images(int, optional): Number of base images to rotate.
             n_rotations(int, optional): Number of rotations for each image.
+            data_path(str, optional): Data directory.
         """
         super().__init__(torch_datasets.MNIST, split, split_ratio, random_state,
-                         n_images, n_rotations)
+                         n_images, n_rotations, data_path=data_path)
 
         if ALLOW_CONV:
             self.data = self.data.view(-1, 1, 28, 28)
