@@ -64,7 +64,7 @@ class PHATE(phate.PHATE, BaseModel):
         if x.shape[0] < self.proc_threshold:
             result = super().fit_transform(x)
         else:
-            # print('            Fitting procrustes...')
+            print('            Fitting procrustes...')
             result = self.fit_transform_procrustes(x)
         return result
 
@@ -369,12 +369,12 @@ class GRAEBase(AE):
             x(BaseDataset): Dataset to fit.
 
         """
-        # print('       Fitting GRAE...')
-        # print('       Fitting manifold learning embedding...')
+        print('       Fitting GRAE...')
+        print('           Fitting manifold learning embedding...')
         emb = scipy.stats.zscore(self.embedder.fit_transform(x))  # Normalize embedding
         self.target_embedding = torch.from_numpy(emb).float().to(DEVICE)
 
-        # print('       Fitting encoder & decoder...')
+        print('           Fitting encoder & decoder...')
         super().fit(x)
 
     def compute_loss(self, x, x_hat, z, idx):
