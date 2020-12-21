@@ -44,7 +44,6 @@ scipy==1.5.2
 scprep==1.0.10
 setuptools==41.4.0
 six==1.15.0
-src==0.1
 tasklogger==1.0.0
 tbb==2021.1.1
 threadpoolctl==2.1.0
