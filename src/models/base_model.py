@@ -1,7 +1,7 @@
 """Parent class for all project models."""
 import time
 
-from matplotlib import pyplot as plt
+import matplotlib
 from sklearn.metrics import mean_squared_error
 
 
@@ -71,7 +71,7 @@ class BaseModel:
         """
         self.plot(x_train, x_test, cmap, s, title, fit=True)
 
-    def plot(self, x_train, x_test=None, cmap='jet', s=15, title=None, comet_exp=None, fit=False):
+    def plot(self, x_train, x_test=None, cmap='jet', s=15, title=None, fit=False):
         """Plot x_train (and possibly x_test) and show a 2D scatter plot of x_train (and possibly x_test).
 
         If x_test is provided, x_train points will be smaller and grayscale and x_test points will be colored.
@@ -83,10 +83,14 @@ class BaseModel:
             cmap(str): Matplotlib colormap.
             s(float): Scatter plot marker size.
             title(str): Figure title. Set to None for no title.
-            comet_exp(Experiment): Log.
             fit(bool): Whether model should be trained on x_train.
 
         """
+        if self.comet_exp is not None:
+            # If comet_exp is set, use different backend to avoid display errors on clusters
+            matplotlib.use('Agg')  # Must be before importing matplotlib.pyplot or pylab!
+        import matplotlib.pyplot as plt
+
         if not fit:
             z_train = self.transform(x_train)
         else:
@@ -111,8 +115,8 @@ class BaseModel:
             plt.scatter(*z_train.T, c='grey', s=s / 10, alpha=.2)
             plt.scatter(*z_test.T, c=y_test, cmap=cmap, s=s)
 
-        if comet_exp is not None:
-            comet_exp.log_figure(figure=plt)
+        if self.comet_exp is not None:
+            self.comet_exp.log_figure(figure=plt)
             plt.clf()
         else:
             plt.show()

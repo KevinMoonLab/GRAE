@@ -95,7 +95,7 @@ def fit_test(exp_params, data_path, write_path, custom_tag=None):
     fit_time = fit_stop - fit_start
 
     # Log plot
-    m.plot(data_train, data_test, title=dataset_name, comet_exp=exp)
+    m.plot(data_train, data_test, title=dataset_name)
 
     # Score test results first to avoid UMAP bug. See issue #515 of their repo.
     test_z, test_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_test)
