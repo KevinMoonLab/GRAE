@@ -1,6 +1,6 @@
 """Validation and testing experiment functions. Should be called by driver code.
 
-Everytime fit, fit_test and fit_validate are called, one experiment is logged in Comet.
+Every time fit, fit_test and fit_validate are called, one experiment is logged in Comet.
 
 """
 import os
@@ -50,9 +50,6 @@ def parse_params(exp_params):
     return model_name, dataset_name, random_state, exp_params
 
 
-# def fit(exp_params):
-
-
 def fit_test(exp_params, data_path, write_path, custom_tag=None):
     """Fit model and compute metrics on both train and test sets.
 
@@ -83,7 +80,8 @@ def fit_test(exp_params, data_path, write_path, custom_tag=None):
 
     # Model
     m = getattr(src.models, model_name)(random_state=random_state, **model_params)
-    m.set_comet(exp)  # Used by DL models to log metrics between epochs
+    m.comet_exp = exp  # Used by DL models to log metrics between epochs
+    m.write_path = write_path
 
     # Benchmark fit time
     fit_start = time.time()
@@ -133,7 +131,7 @@ def fit_test(exp_params, data_path, write_path, custom_tag=None):
     exp.log_other('success', 1)
 
 
-def fit_validate(exp_params, k, data_path, custom_tag=None):
+def fit_validate(exp_params, k, data_path, write_path, custom_tag=None):
     """Fit model and compute metrics on train and validation set. Intended for hyperparameter search.
 
     Does not log any asset to comet, only metrics.
@@ -142,8 +140,9 @@ def fit_validate(exp_params, k, data_path, custom_tag=None):
         exp_params(dict): Parameter dict. Should at least have keys model_name, dataset_name & random_state. Other
         keys are assumed to be model parameters.
         k(int): Fold identifier.
-        custom_tag(str): Custom tag for comet experiment.
         data_path(str): Data directory.
+        write_path(str): Where to write temp files.
+        custom_tag(str): Custom tag for comet experiment.
 
     """
     # Comet experiment
@@ -164,6 +163,9 @@ def fit_validate(exp_params, k, data_path, custom_tag=None):
 
     # Model
     m = getattr(src.models, model_name)(random_state=random_state, **model_params)
+    m.comet_exp = exp
+    m.write_path = write_path
+    m.data_val = data_val
 
     with exp.train():
         m.fit(data_train)

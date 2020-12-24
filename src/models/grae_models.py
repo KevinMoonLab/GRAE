@@ -1,4 +1,5 @@
 """PHATE, AE and GRAE model classes with sklearn inspired interface."""
+import os
 
 import torch
 import torch.nn as nn
@@ -131,7 +132,11 @@ class AE(BaseModel):
                  hidden_dims=HIDDEN_DIMS,
                  conv_dims=CONV_DIMS,
                  conv_fc_dims=CONV_FC_DIMS,
-                 noise=0):
+                 noise=0,
+                 patience=50,
+                 data_val=None,
+                 comet_exp=None,
+                 write_path=''):
         """Init. Arguments specify the architecture of the encoder. Decoder will use the reversed architecture.
 
         Args:
@@ -151,6 +156,10 @@ class AE(BaseModel):
             layer. No need to specify the bottleneck layer. This argument is only used if provided samples
             are images (i.e. 3D tensors)
             noise(float): Variance of the gaussian noise injected in the bottleneck before reconstruction.
+            patience(int): Epochs with no validation MSE improvement before early stopping.
+            data_val(BaseDataset): Split to validate MSE on for early stopping.
+            comet_exp(Experiment): Comet experiment to log results.
+            write_path(str): Where to write temp files.
         """
         self.random_state = random_state
         self.n_components = n_components
@@ -166,8 +175,16 @@ class AE(BaseModel):
         self.conv_dims = conv_dims
         self.conv_fc_dims = conv_fc_dims
         self.noise = noise
-        self.comet_exp = None
-        self.x_train = None
+        self.comet_exp = comet_exp
+        self.data_dim = None
+
+        # Early stopping attributes
+        self.data_val = data_val
+        self.val_loader = None
+        self.patience = patience
+        self.current_loss_min = np.inf
+        self.early_stopping_count = 0
+        self.write_path = write_path
 
     def fit(self, x):
         """Fit model to data.
@@ -176,12 +193,14 @@ class AE(BaseModel):
             x(BaseDataset): Dataset to fit.
 
         """
-        self.x_train = x
 
         # Reproducibility
         torch.manual_seed(self.random_state)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
+        # Save data dimensionality
+        self.data_dim = torch.flatten(x[0][0]).shape[0]
 
         # Fetch appropriate torch module
         if self.torch_module is None:
@@ -216,6 +235,8 @@ class AE(BaseModel):
         self.torch_module.train()
 
         self.loader = self.get_loader(x)
+        if self.data_val is not None:
+            self.val_loader = self.get_loader(self.data_val)
 
         # Get first metrics
         self.log_metrics(0)
@@ -229,6 +250,15 @@ class AE(BaseModel):
 
             self.log_metrics(epoch)
             self.end_epoch(epoch)
+
+            # Early stopping
+            if self.early_stopping_count == self.patience:
+                cp = os.path.join(self.write_path, 'checkpoint.pt')
+                self.torch_module.load_state_dict(torch.load(cp))
+                os.remove(cp)
+                if self.comet_exp is not None:
+                    self.comet_exp.log_metric('early_stopped', epoch - self.early_stopping_count)
+                break
 
     def get_loader(self, x):
         """Fetch data loader.
@@ -277,30 +307,74 @@ class AE(BaseModel):
         """
         pass
 
+    def eval_MSE(self, loader):
+        """Compute MSE on data.
+
+        Args:
+            loader(DataLoader): Dataset loader.
+
+        Returns:
+            float: MSE.
+
+        """
+        # Compute MSE over dataset in loader
+        self.torch_module.eval()
+        sum_loss = 0
+
+        for batch in loader:
+            data, _, idx = batch  # No need for labels. Training is unsupervised
+            data = data.to(DEVICE)
+
+            x_hat, z = self.torch_module(data)  # Forward pass
+            sum_loss += self.criterion(data, x_hat).item()
+
+        self.torch_module.train()
+
+        return sum_loss / len(loader.dataset)  # Return average per observation
+
     def log_metrics(self, epoch):
-        """Log metrics to comet if comet experiment was set.
+        """Log metrics.
 
         Args:
             epoch(int): Current epoch.
 
         """
+        self.log_metrics_train(epoch)
+        self.log_metrics_val(epoch)
+
+    def log_metrics_val(self, epoch):
+        """Compute validation metrics, log them to comet if need be and update early stopping attributes.
+
+        Args:
+            epoch(int):  Current epoch.
+        """
+        # Validation loss
+        if self.val_loader is not None:
+            val_mse = self.eval_MSE(self.val_loader)
+
+            if self.comet_exp is not None:
+                with self.comet_exp.validate():
+                    self.comet_exp.log_metric('MSE_loss', val_mse, epoch=epoch)
+
+            if val_mse < self.current_loss_min:
+                # If new min, update attributes and checkpoint model
+                self.current_loss_min = val_mse
+                self.early_stopping_count = 0
+                torch.save(self.torch_module.state_dict(), os.path.join(self.write_path, 'checkpoint.pt'))
+            else:
+                self.early_stopping_count += 1
+
+    def log_metrics_train(self, epoch):
+        """Log train metrics, log them to comet if need be and update early stopping attributes.
+
+        Args:
+            epoch(int):  Current epoch.
+        """
+        # Train loss
         if self.comet_exp is not None:
-
-            # Compute MSE over train set
-            self.torch_module.eval()
-            sum_loss = 0
-
-            for batch in self.loader:
-                data, _, idx = batch  # No need for labels. Training is unsupervised
-                data = data.to(DEVICE)
-
-                x_hat, z = self.torch_module(data)  # Forward pass
-                sum_loss += self.criterion(data, x_hat).item()
-
+            train_mse = self.eval_MSE(self.loader)
             with self.comet_exp.train():
-                self.comet_exp.log_metric('MSE_loss', sum_loss/len(self.loader.dataset), epoch=epoch)
-
-            self.torch_module.train()
+                self.comet_exp.log_metric('MSE_loss', train_mse, epoch=epoch)
 
     def transform(self, x):
         """Transform data.
@@ -343,7 +417,7 @@ class GRAEBase(AE):
     learning algorithm.
     """
 
-    def __init__(self, *, embedder, embedder_params, lam=100, relax=True, **kwargs):
+    def __init__(self, *, embedder, embedder_params, lam=100, relax=False, **kwargs):
         """Init.
 
         Args:
@@ -394,8 +468,8 @@ class GRAEBase(AE):
 
         loss.backward()
 
-    def log_metrics(self, epoch):
-        """Log metrics to comet if comet experiment was set.
+    def log_metrics_train(self, epoch):
+        """Log train metrics to comet if comet experiment was set.
 
         Args:
             epoch(int): Current epoch.
@@ -417,13 +491,13 @@ class GRAEBase(AE):
                 sum_geo_loss += self.criterion(z, self.target_embedding[idx]).item()
 
             with self.comet_exp.train():
-                mse_loss = sum_loss/len(self.loader.dataset)
-                geo_loss = sum_geo_loss/len(self.loader.dataset)
+                mse_loss = sum_loss / len(self.loader.dataset)
+                geo_loss = sum_geo_loss / len(self.loader.dataset)
                 self.comet_exp.log_metric('MSE_loss', mse_loss, epoch=epoch)
                 self.comet_exp.log_metric('geo_loss', geo_loss, epoch=epoch)
                 self.comet_exp.log_metric('GRAE_loss', mse_loss + self.lam * geo_loss, epoch=epoch)
                 if self.lam * geo_loss > 0:
-                    self.comet_exp.log_metric('geo_on_MSE', self.lam * geo_loss/mse_loss, epoch=epoch)
+                    self.comet_exp.log_metric('geo_on_MSE', self.lam * geo_loss / mse_loss, epoch=epoch)
 
             self.torch_module.train()
 
@@ -450,7 +524,7 @@ class GRAE(GRAEBase):
     manifold learning algorithm.
     """
 
-    def __init__(self, *, lam=100, knn=5, t='auto', relax=True, **kwargs):
+    def __init__(self, *, lam=100, knn=5, t='auto', relax=False, **kwargs):
         """Init.
 
         Args:
@@ -473,6 +547,7 @@ class GRAE(GRAEBase):
 
 class SmallGRAE(GRAE):
     """GRAE class with fixed small geometric regularization factor."""
+
     def __init__(self, *, knn=5, t='auto', **kwargs):
         """Init.
 
@@ -487,6 +562,7 @@ class SmallGRAE(GRAE):
 
 class LargeGRAE(GRAE):
     """GRAE class with fixed large geometric regularization factor."""
+
     def __init__(self, *, knn=5, t='auto', **kwargs):
         """Init.
 

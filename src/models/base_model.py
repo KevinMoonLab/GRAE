@@ -170,11 +170,29 @@ class BaseModel:
             'rec_time': rec_time,
         }
 
-    def set_comet(self, exp):
-        """Attach comet experiment to model.
-
-        Args:
-            exp(Experiment): Comet experiment.
-
-        """
-        self.comet_exp = exp
+    # def rec_plot(self, x, im_shape, N=8):
+    #     np.random.seed(self.random_state)
+    #
+    #     x_hat = self.reconstruct(x)
+    #     x, _ = x.numpy()
+    #
+    #     sample_mask = np.random.choice(x.shape[0], size=N, replace=False)
+    #     x = x[sample_mask]
+    #     x_hat = x_hat[sample_mask]
+    #
+    #     fig, ax = plt.subplots(N, 2, figsize=(2 * 3.5, N * 3.5))
+    #
+    #     for i in range(ax.shape[0]):
+    #         original = x[i].reshape(im_shape)
+    #         reconstructed = x_hat[i].reshape(im_shape)
+    #
+    #         original = ndimage.rotate(original, -90, reshape=False)
+    #         reconstructed = ndimage.rotate(reconstructed, -90, reshape=False)
+    #
+    #         for j, im in enumerate((original, reconstructed)):
+    #             axis = ax[i, j]
+    #             axis.imshow(im, cmap='Greys_r')
+    #             axis.set_xticks([])
+    #             axis.set_yticks([])
+    #
+    #     plt.show()

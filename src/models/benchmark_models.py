@@ -67,7 +67,7 @@ class UMAP(umap.UMAP, BaseModel):
 class GRAEUMAP(GRAEBase):
     """GRAE with UMAP regularization."""
 
-    def __init__(self, *, lam=100, n_neighbors=15, min_dist=.1, relax=True, **kwargs):
+    def __init__(self, *, lam=100, n_neighbors=15, min_dist=.1, relax=False, **kwargs):
         """Init.
 
         Args:

@@ -49,16 +49,28 @@ schedule = schedule.loc[schedule['job'] == args.job].drop(['job', 'estimated_tim
 # Launch experiments
 for _, exp_params in schedule.iterrows():
     params = exp_params.dropna().to_dict()
-    if args.validation:
-        dataset_name = exp_params['dataset_name']
-        n_fold = 1 if dataset_name in ['IPSC', 'SwissRoll'] else 3  # k-fold validation on small datasets
 
-        for i in range(n_fold):
-            try:
-                fit_validate(params, custom_tag=args.comet_tag, data_path=args.data_path, k=i)
-            except Exception as e:
-                print(e)
+    # Use same random state for all experiments for reproducibility
+    params['random_state'] = 42
+
+    if args.validation:
+        # Replace epochs by max_epochs when doing validation. Early stopping will be used.
+        # Useful to get an idea of the number of epochs to use when training on the full training set
+        if 'epochs' in params.keys():
+            params['epochs'] = params.pop('max_epochs')
+
+        # Get fold
+        k = params.pop('k')
+
+        try:
+            fit_validate(params, custom_tag=args.comet_tag, data_path=args.data_path, k=k, write_path=args.write_path)
+        except Exception as e:
+            print(e)
     else:
+        # Training on full dataset and compute metrics on test split
+        if 'epochs' in params.keys():
+            params.pop('max_epochs')  # Not needed when training on full train split. Use directly epochs instead
+
         try:
             fit_test(params, custom_tag=args.comet_tag, data_path=args.data_path, write_path=args.write_path)
         except Exception as e:
