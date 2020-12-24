@@ -44,7 +44,7 @@ def parse_params(exp_params):
 
     # Convert some values to int
     for key, value in exp_params.items():
-        if key in ('epochs', 'batch_size', 't', 'knn', 'n_neighbors', 'subsample'):
+        if key in ('epochs', 'batch_size', 't', 'knn', 'n_neighbors', 'subsample', 'patience'):
             exp_params[key] = int(value)
 
     return model_name, dataset_name, random_state, exp_params

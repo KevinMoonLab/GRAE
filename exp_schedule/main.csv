@@ -55,4 +55,3 @@ estimated_time,job,model_name,dataset_name,epochs,max_epochs,patience,lr,batch_s
 11,5,UMAP,Teapot,,,,,,,,,15,0.1,,,,
 170,5,UMAP,Tracking,,,,,,,,,15,0.1,,,,
 9,5,UMAP,UMIST,,,,,,,,,15,0.1,,,,
-0.5,-1,AE,Faces,3,3,,0.0001,128,1,,,,,,,,
