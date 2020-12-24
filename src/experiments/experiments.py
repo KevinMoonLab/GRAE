@@ -97,7 +97,12 @@ def fit_test(exp_params, data_path, write_path, custom_tag=None):
 
     # Score test results first to avoid UMAP bug. See issue #515 of their repo.
     test_z, test_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_test)
-    train_z, train_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_train)
+
+    if model_name == 'UMAP' and dataset_name == 'Embryoid':
+        # Reconstructing full training set in reasonable time is very long with UMAP on Embryoid. Skip it.
+        train_z, train_metrics = m.transform(data_train), dict()
+    else:
+        train_z, train_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_train)
 
     with exp.train():
         _, train_y = data_train.numpy()
@@ -172,16 +177,15 @@ def fit_validate(exp_params, k, data_path, write_path, custom_tag=None):
 
         # Score val results first to avoid UMAP bug. See issue #515 of their repo.
         val_z, val_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_val, mse_only=True)
-        train_z, train_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_train, mse_only=True)
 
-        _, train_y = data_train.numpy()
+        if model_name != 'UMAP' or dataset_name != 'Embryoid':
+            # Do not benchmark train set for UMAP to save time
+            train_z, train_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_train, mse_only=True)
 
-        # Log train metrics
-        exp.log_metrics(train_metrics)
+            # Log train metrics
+            exp.log_metrics(train_metrics)
 
     with exp.validate():
-        _, test_y = data_val.numpy()
-
         # Log train metrics
         exp.log_metrics(val_metrics)
 
