@@ -1,6 +1,7 @@
 """Validation and testing experiment functions. Should be called by driver code.
 
-Every time fit, fit_test and fit_validate are called, one experiment is logged in Comet.
+All results are logged to Comet. Comet API key should be in a config file
+in the working directory.
 
 """
 import os
@@ -50,7 +51,7 @@ def parse_params(exp_params):
     return model_name, dataset_name, random_state, exp_params
 
 
-def fit_test(exp_params, data_path, write_path, custom_tag=None):
+def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
     """Fit model and compute metrics on both train and test sets.
 
     Also log plot and embeddings to comet.
@@ -60,16 +61,21 @@ def fit_test(exp_params, data_path, write_path, custom_tag=None):
         keys are assumed to be model parameters.
         data_path(str): Data directory.
         write_path(str): Where temp files can be written.
+        others(dict): Other things to log to Comet experiment.
         custom_tag(str): Custom tag for Comet experiment.
 
     """
     # Comet experiment
     exp = Experiment()
     exp.disable_mp()
-    exp.add_tag('full')
+    exp.add_tag('test')
+    exp.log_parameters(exp_params)
+
+    if others is not None:
+        exp.log_others(others)
+
     if custom_tag is not None:
         exp.add_tag(custom_tag)
-    exp.log_parameters(exp_params)
 
     # Parse experiment parameters
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
@@ -136,7 +142,7 @@ def fit_test(exp_params, data_path, write_path, custom_tag=None):
     exp.log_other('success', 1)
 
 
-def fit_validate(exp_params, k, data_path, write_path, custom_tag=None):
+def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=None):
     """Fit model and compute metrics on train and validation set. Intended for hyperparameter search.
 
     Does not log any asset to comet, only metrics.
@@ -147,6 +153,7 @@ def fit_validate(exp_params, k, data_path, write_path, custom_tag=None):
         k(int): Fold identifier.
         data_path(str): Data directory.
         write_path(str): Where to write temp files.
+        others(dict): Other things to log to Comet experiment.
         custom_tag(str): Custom tag for comet experiment.
 
     """
@@ -154,10 +161,13 @@ def fit_validate(exp_params, k, data_path, write_path, custom_tag=None):
     exp = Experiment()
     exp.disable_mp()
     exp.add_tag('hyper')
+    exp.log_parameters(exp_params)
+
+    if others is not None:
+        exp.log_others(others)
+
     if custom_tag is not None:
         exp.add_tag(custom_tag)
-    exp.log_parameters(exp_params)
-    exp.log_other('fold', k)
 
     # Parse experiment parameters
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
