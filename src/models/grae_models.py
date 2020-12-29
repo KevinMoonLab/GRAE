@@ -253,12 +253,16 @@ class AE(BaseModel):
 
             # Early stopping
             if self.early_stopping_count == self.patience:
-                cp = os.path.join(self.write_path, 'checkpoint.pt')
-                self.torch_module.load_state_dict(torch.load(cp))
-                os.remove(cp)
                 if self.comet_exp is not None:
-                    self.comet_exp.log_metric('early_stopped', epoch - self.early_stopping_count)
+                    self.comet_exp.log_metric('early_stopped',
+                                              epoch - self.early_stopping_count)
                 break
+
+        # Load checkpoint if it exists
+        cp = os.path.join(self.write_path, 'checkpoint.pt')
+        if os.path.exists(cp):
+            self.torch_module.load_state_dict(torch.load(cp))
+            os.remove(cp)
 
     def get_loader(self, x):
         """Fetch data loader.
