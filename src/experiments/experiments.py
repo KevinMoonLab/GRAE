@@ -66,7 +66,7 @@ def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
 
     """
     # Comet experiment
-    exp = Experiment()
+    exp = Experiment(parse_args=False)
     exp.disable_mp()
     exp.add_tag('test')
     exp.log_parameters(exp_params)
@@ -158,7 +158,7 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=N
 
     """
     # Comet experiment
-    exp = Experiment()
+    exp = Experiment(parse_args=False)
     exp.disable_mp()
     exp.add_tag('hyper')
     exp.log_parameters(exp_params)
