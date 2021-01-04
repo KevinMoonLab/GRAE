@@ -45,6 +45,7 @@ class PHATE(phate.PHATE, BaseModel):
         self.proc_threshold = proc_threshold
         self.procrustes_batch_size = procrustes_batches_size
         self.procrustes_lm = procrustes_lm
+        self.comet_exp = None
         super().__init__(**kwargs)
 
     def fit_transform(self, x):
