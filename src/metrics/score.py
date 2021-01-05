@@ -143,11 +143,11 @@ def score_model(dataset_name, model, dataset, mse_only=False):
         # Only fit a regression of latent factors for 2D embeddings
         y = dataset.get_latents()
 
-        if dataset_name in ['Teapot', 'RotatedDigits']:
+        if dataset_name in ['Teapot', 'RotatedDigits', 'ToroidalHelices']:
             # Angle-based regression for circular manifolds
             r2 = radial_regression(z, *y.T)
         elif dataset_name in ['UMIST']:
-            # UMIST has a class-like structure that should be accounted for
+            # UMIST has a cluster structure that should be accounted for
             labels = y[:, 0]
             angles = y[:, 1:]
             r2 = latent_regression(z, angles, labels=labels)

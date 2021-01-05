@@ -11,14 +11,11 @@
 import os
 import argparse
 
-import comet_ml
-
 import pandas as pd
 from sklearn.model_selection import ParameterSampler
 
+from scripts.hyperparameter_config import PARAM_GRID, RANDOM_STATE
 from src.experiments.experiments import fit_validate
-
-RANDOM_STATE = 42
 
 # Parser
 parser = argparse.ArgumentParser(
@@ -60,18 +57,6 @@ parser.add_argument('--n_iter',
 args = parser.parse_args()
 
 # Hyperparameter grid
-PARAM_GRID = {
-    'lr': [.001, .0005, .0001],
-    'batch_size': [32, 64, 128],
-    'weight_decay': [.01, .1, 1, 10, 100],
-    't': [10, 25, 50, 100, 250],
-    'knn': [5, 10, 15, 20, 100],
-    'n_neighbors': [5, 10, 15, 20, 100],
-    'min_dist': [.1, .2, .3, .4, .5],
-    'epsilon': [5, 10, 50, 100, 250],
-    'lam': [.01, .1, 1, 10, 100],
-    'margin': [.01, .1, 1, 10, 100],
-}
 
 # Get Schedule
 # Read schedule and only keep experiment tagged with current job
