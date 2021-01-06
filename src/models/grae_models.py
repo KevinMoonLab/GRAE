@@ -172,7 +172,7 @@ class AE(BaseModel):
         self.epochs = epochs
         self.batch_size = batch_size
         self.weight_decay = weight_decay
-        self.criterion = nn.MSELoss(reduction='sum')
+        self.criterion = nn.MSELoss(reduction='mean')
         self.conv_dims = conv_dims
         self.conv_fc_dims = conv_fc_dims
         self.noise = noise

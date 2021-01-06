@@ -147,7 +147,7 @@ def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
 def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=None):
     """Fit model and compute metrics on train and validation set. Intended for hyperparameter search.
 
-    Does not log any asset to comet, only metrics.
+    Only logs metric and scatter plot of final embedding.
 
     Args:
         exp_params(dict): Parameter dict. Should at least have keys model_name, dataset_name & random_state. Other
@@ -186,6 +186,9 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=N
 
     with exp.train():
         m.fit(data_train)
+
+        # Log plot
+        m.plot(data_train, data_val, title=dataset_name)
 
         # Score val results first to avoid UMAP bug. See issue #515 of their repo.
         val_z, val_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_val, mse_only=True)
