@@ -83,11 +83,13 @@ def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
     # Fetch and split dataset.
     data_train = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
     data_test = getattr(src.data, dataset_name)(split='test', random_state=random_state, data_path=data_path)
+    data_train, data_val = data_train.validation_split(k=8)
 
     # Model
     m = getattr(src.models, model_name)(random_state=random_state, **model_params)
     m.comet_exp = exp  # Used by DL models to log metrics between epochs
     m.write_path = write_path
+    m.data_val = data_val  # For early stopping
 
     # Benchmark fit time
     fit_start = time.time()
