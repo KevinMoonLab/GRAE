@@ -2,6 +2,7 @@
 import os
 import urllib
 import math
+import zipfile
 
 import numpy as np
 import torch
@@ -435,3 +436,65 @@ class RotatedDigits(Rotated):
         if ALLOW_CONV:
             self.data = self.data.view(-1, 1, 28, 28)
 
+
+class COIL100(BaseDataset):
+    """COIL100 dataset.
+
+    7200 images of 100 objects with different rotations."""
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT,
+                 random_state=SEED, data_path=DEFAULT_PATH):
+        """Init.
+
+        Args:
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Data directory.
+        """
+        self.url = 'http://www.cs.columbia.edu/CAVE/databases/SLAM_coil-20_coil-100/coil-100/coil-100.zip'
+        self.root = os.path.join(data_path, 'COIL100')
+
+        if not os.path.exists(self.root):
+            os.mkdir(self.root)
+            self._download()
+
+        x = np.load(os.path.join(self.root, 'x.npy'))
+        y = np.load(os.path.join(self.root, 'y.npy'))
+
+        super().__init__(x, y, split, split_ratio, random_state,
+                         labels=y[:, 0].astype(int).reshape(-1))
+
+        self.latents = np.copy(self.targets)
+
+        # Keep only one latent in the targets attribute for compatibility with
+        # other datasets
+        self.targets = self.targets[:, 0]
+
+        # Reshape dataset in image format
+        if ALLOW_CONV:
+            self.data = self.data.view(-1, 128, 128, 3).permute(0, 3, 1, 2)
+
+    def _download(self):
+        """Download and save COIL-100 dataset."""
+        print('Downloading COIL100 dataset...')
+        path = os.path.join(self.root, 'coil100.zip')
+        urllib.request.urlretrieve(self.url, path)
+
+        with zipfile.ZipFile(path, 'r') as zip_ref:
+            zip_ref.extractall(path=self.root)
+
+        x = list()
+        y = list()
+
+        for i in range(1, 101):
+            for j in range(0, 360, 5):
+                img = Image.open(os.path.join(self.root, 'coil-100', f'obj{i}__{j}.png'))
+                img.load()
+                img = np.asarray(img, dtype='int32')
+                x.append(img.flatten()/255)
+                y.append(np.array([i, j]))
+
+        x = np.vstack(x)
+        y = np.vstack(y)
+        np.save(os.path.join(self.root, 'x.npy'), x)
+        np.save(os.path.join(self.root, 'y.npy'), y)

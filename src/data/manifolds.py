@@ -1,6 +1,8 @@
 """Synthetic manifold datasets."""
 import math
 import copy
+import os
+import requests
 
 import torch
 import scipy
@@ -83,22 +85,25 @@ def set_axes_equal(ax):
 class Surface(BaseDataset):
     """Class for 2D surfaces embedded in 3D"""
 
-    def plot(self, s=20, tilt=30):
+    def plot(self, s=20, tilt=30, rotation=-80, edgecolor='k'):
         """3D plot of the data
 
         Args:
             s(int): Marker size.
             tilt(int): Inclination towards observer.
+            tilt(rotation): Rotation angle.
+            edgecolor(str): Edge color.
 
         """
         x, y = self.numpy()
         fig = plt.figure()
         ax = p3.Axes3D(fig)
-        ax.view_init(tilt, -80)
+        ax.view_init(tilt, rotation)
         ax.scatter(*x.T,
                    cmap="jet",
                    c=y,
-                   s=s, edgecolor='k')
+                   s=s,
+                   edgecolor=edgecolor)
         set_axes_equal(ax)
         plt.show()
 
@@ -392,6 +397,41 @@ class ArtificialTree(BaseDataset):
         self.latents = self.targets.numpy()
         self.targets = self.targets[:, 0]
 
+
+class Mammoth(Surface):
+    """Mammoth skeleton dataset. 50 k points in 3D.
+
+    Credits to Smithsonian Institute, Andy Coenen & Adam Pearce.
+    See their blog post at https://pair-code.github.io/understanding-umap/.
+    """
+    def __init__(self, split='none', split_ratio=FIT_DEFAULT,
+                 random_state=SEED, data_path=DEFAULT_PATH):
+        """Init.
+
+        Args:
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Unused. Only to share same signature with other datasets.
+        """
+        self.url = 'https://raw.githubusercontent.com/PAIR-code/understanding-umap/master/raw_data/mammoth_3d.json'
+        self.root = os.path.join(data_path, 'mammoth')
+
+        if not os.path.exists(self.root):
+            os.mkdir(self.root)
+            self._download()
+
+        x = np.load(os.path.join(self.root, 'x.npy'))
+        y = np.arange(x.shape[0])
+
+        super().__init__(x, y, split, split_ratio, random_state)
+
+    def _download(self):
+        """Download ans save dataset."""
+        print('Downloading Mammoth dataset')
+        results = requests.get(self.url).json()
+        d = np.array(results)
+        np.save(os.path.join(self.root, 'x'), d)
 
 
 """Following is from the Topological Autoencoders paper from Moor & al to unit test our TopoAE class.
