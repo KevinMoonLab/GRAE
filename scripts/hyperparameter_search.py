@@ -11,6 +11,7 @@
 import os
 import argparse
 
+import comet_ml
 import pandas as pd
 from sklearn.model_selection import ParameterSampler
 
