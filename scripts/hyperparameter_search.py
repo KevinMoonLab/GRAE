@@ -14,7 +14,7 @@ import argparse
 import pandas as pd
 from sklearn.model_selection import ParameterSampler
 
-from scripts.hyperparameter_config import PARAM_GRID, RANDOM_STATE
+from src.experiments.hyperparameter_config import PARAM_GRID, RANDOM_STATE
 from src.experiments.experiments import fit_validate
 
 # Parser
