@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as p3
 import numpy as np
 from sklearn import datasets
+import phate
 
 from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
 
@@ -358,6 +359,40 @@ class ToroidalHelices(Surface):
         else:
             # If only one helix, use angle as target variable
             self.targets = self.targets[:, 1]
+
+
+class ArtificialTree(BaseDataset):
+    """High-dimensional artificial tree from the PHATE paper."""
+
+    def __init__(self, n_dim=200, n_branch=10, branch_length=1000,
+                 rand_multiplier=2, sigma=5,
+                 split='none', split_ratio=FIT_DEFAULT, random_state=SEED,
+                 data_path=DEFAULT_PATH):
+        """Init.
+
+        Args:
+            n_dim(int, optional): Ambient space dimension.
+            n_branch(int, optional): Number of branches to generate from main branch.
+            branch_length(int, optional): Number of points in each branch.
+            rand_multiplier(float, optional): Step between each point.
+            sigma(float, optional): Variance of noise
+            split(str, optional): Name of split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            random_state(int, optional): Random seed. See BaseDataset.
+            data_path(str, optional): Unused. Only to share same signature with other datasets.
+        """
+        tree, branches = phate.tree.gen_dla(n_dim=n_dim, n_branch=n_branch,
+                                            branch_length=branch_length,
+                                            rand_multiplier=rand_multiplier,
+                                            seed=random_state, sigma=sigma)
+        point_id = np.tile(np.arange(branch_length), n_branch)
+
+        super().__init__(tree, np.vstack((branches, point_id)).T,
+                         split, split_ratio, random_state)
+        self.latents = self.targets.numpy()
+        self.targets = self.targets[:, 0]
+
+
 
 """Following is from the Topological Autoencoders paper from Moor & al to unit test our TopoAE class.
 

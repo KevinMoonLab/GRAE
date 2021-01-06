@@ -287,8 +287,8 @@ class Tracking(BaseDataset):
 
                     # Add noise using skimage
                     bg_copy = np.array(bg_copy)
-                    bg_copy = random_noise(bg_copy, mode='gaussian',
-                                           seed=((43 * i + 1) * (101 * j + 1)) % 74501, var=0.05)
+                    # bg_copy = random_noise(bg_copy, mode='gaussian',
+                    #                        seed=((43 * i + 1) * (101 * j + 1)) % 74501, var=0.05)
                     bg_copy = Image.fromarray((bg_copy * 255).astype(np.uint8))
 
                     bg_copy.paste(sprite, (i, j), sprite)

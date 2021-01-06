@@ -529,7 +529,7 @@ class GRAE(GRAEBase):
     manifold learning algorithm.
     """
 
-    def __init__(self, *, lam=100, knn=5, t='auto', relax=False, **kwargs):
+    def __init__(self, *, lam=100, knn=5, gamma=1, t='auto', relax=False, **kwargs):
         """Init.
 
         Args:
@@ -537,6 +537,7 @@ class GRAE(GRAEBase):
             knn(int): knn argument of PHATE. Number of neighbors to consider in knn graph.
             t(int): Number of steps of the diffusion operator. Can also be set to 'auto' to select t according to the
             knee point in the Von Neumann Entropy of the diffusion operator
+            gamma(float): Informational distance.
             relax(bool): Use the lambda relaxation scheme. Set to false to use constant lambda throughout training.
             **kwargs: All other kehyword arguments are passed to the GRAEBase parent class.
         """
@@ -545,6 +546,7 @@ class GRAE(GRAEBase):
                          embedder=PHATE,
                          embedder_params=dict(knn=knn,
                                               t=t,
+                                              gamma=gamma,
                                               verbose=0,
                                               n_jobs=-1),
                          **kwargs)
