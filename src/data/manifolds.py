@@ -321,7 +321,7 @@ class Torus(Surface):
 class ToroidalHelices(Surface):
     """Intertwined toroidal helices."""
 
-    def __init__(self, n_samples=4000, n_helix=4, split='none',
+    def __init__(self, n_samples=4000, n_helix=2, split='none',
                  split_ratio=FIT_DEFAULT, random_state=SEED,
                  data_path=DEFAULT_PATH, main_r=3, tube_r=1, k=8):
         """Init.
@@ -370,7 +370,7 @@ class ArtificialTree(BaseDataset):
     """High-dimensional artificial tree from the PHATE paper."""
 
     def __init__(self, n_dim=200, n_branch=10, branch_length=1000,
-                 rand_multiplier=2, sigma=5,
+                 rand_multiplier=2, sigma=0,
                  split='none', split_ratio=FIT_DEFAULT, random_state=SEED,
                  data_path=DEFAULT_PATH):
         """Init.
@@ -399,7 +399,7 @@ class ArtificialTree(BaseDataset):
 
 
 class Mammoth(Surface):
-    """Mammoth skeleton dataset. 50 k points in 3D.
+    """Mammoth skeleton dataset. 10 k points in 3D.
 
     Credits to Smithsonian Institute, Andy Coenen & Adam Pearce.
     See their blog post at https://pair-code.github.io/understanding-umap/.

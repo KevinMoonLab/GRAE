@@ -17,7 +17,7 @@ from src.models.torch_modules import AutoencoderModule, ConvAutoencoderModule
 SEED = 42
 BATCH_SIZE = 128
 LR = .0001
-WEIGHT_DECAY = 1
+WEIGHT_DECAY = 0
 EPOCHS = 200
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
 CONV_DIMS = [32, 64]  # Default conv channels
