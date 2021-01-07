@@ -331,7 +331,7 @@ class AE(BaseModel):
             data = data.to(DEVICE)
 
             x_hat, z = self.torch_module(data)  # Forward pass
-            sum_loss += self.criterion(data, x_hat).item()
+            sum_loss += data.shape[0] * self.criterion(data, x_hat).item()
 
         self.torch_module.train()
 
@@ -492,8 +492,8 @@ class GRAEBase(AE):
                 data = data.to(DEVICE)
 
                 x_hat, z = self.torch_module(data)  # Forward pass
-                sum_loss += self.criterion(data, x_hat).item()
-                sum_geo_loss += self.criterion(z, self.target_embedding[idx]).item()
+                sum_loss += data.shape[0] * self.criterion(data, x_hat).item()
+                sum_geo_loss += data.shape[0] * self.criterion(z, self.target_embedding[idx]).item()
 
             with self.comet_exp.train():
                 mse_loss = sum_loss / len(self.loader.dataset)

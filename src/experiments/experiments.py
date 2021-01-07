@@ -81,9 +81,9 @@ def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
 
     # Fetch and split dataset.
-    data_train = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
+    data_train_full = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
     data_test = getattr(src.data, dataset_name)(split='test', random_state=random_state, data_path=data_path)
-    data_train, data_val = data_train.validation_split(k=8)
+    data_train, data_val = data_train_full.validation_split(fold=8)
 
     # Model
     m = getattr(src.models, model_name)(random_state=random_state, **model_params)
@@ -101,7 +101,7 @@ def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
     fit_time = fit_stop - fit_start
 
     # Log plot
-    m.plot(data_train, data_test, title=dataset_name)
+    m.plot(data_train_full, data_test, title=dataset_name)
 
     # Score test results first to avoid UMAP bug. See issue #515 of their repo.
     test_z, test_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_test)
