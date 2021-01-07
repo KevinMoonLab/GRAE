@@ -35,7 +35,7 @@ class Embryoid(BaseDataset):
         # Download and preprocess dataset if needed
         self.root = os.path.join(data_path, 'Embryoid')
 
-        if not os.path.isdir(os.path.join(self.root, "scRNAseq", "T0_1A")):
+        if not os.path.exists(self.root):
             os.mkdir(self.root)
 
             # Code from this section is taken from the PHATE tutorial
