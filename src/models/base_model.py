@@ -102,7 +102,7 @@ class BaseModel:
             raise Exception('Can only plot 2D embeddings.')
 
         if title is not None:
-            plt.title(title, fontsize=30)
+            plt.title(title, fontsize=20)
             plt.xticks([])
             plt.yticks([])
 
