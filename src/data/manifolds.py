@@ -82,6 +82,29 @@ def set_axes_equal(ax):
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
+def surface_plot(x, y, s=20, tilt=30, rotation=-80, edgecolor='k'):
+    """3D plot of the data
+
+    Args:
+        x(ndarray): Points.
+        y(ndarray): Labels for coloring.
+        s(int): Marker size.
+        tilt(int): Inclination towards observer.
+        rotation(rotation): Rotation angle.
+        edgecolor(str): Edge color.
+
+    """
+    fig = plt.figure()
+    ax = p3.Axes3D(fig)
+    ax.view_init(tilt, rotation)
+    ax.scatter(*x.T,
+               cmap="jet",
+               c=y,
+               s=s,
+               edgecolor=edgecolor)
+    set_axes_equal(ax)
+
+
 class Surface(BaseDataset):
     """Class for 2D surfaces embedded in 3D"""
 
@@ -91,20 +114,12 @@ class Surface(BaseDataset):
         Args:
             s(int): Marker size.
             tilt(int): Inclination towards observer.
-            tilt(rotation): Rotation angle.
+            rotation(rotation): Rotation angle.
             edgecolor(str): Edge color.
 
         """
         x, y = self.numpy()
-        fig = plt.figure()
-        ax = p3.Axes3D(fig)
-        ax.view_init(tilt, rotation)
-        ax.scatter(*x.T,
-                   cmap="jet",
-                   c=y,
-                   s=s,
-                   edgecolor=edgecolor)
-        set_axes_equal(ax)
+        surface_plot(x, y, s, tilt, rotation, edgecolor)
         plt.show()
 
 
@@ -404,6 +419,7 @@ class Mammoth(Surface):
     Credits to Smithsonian Institute, Andy Coenen & Adam Pearce.
     See their blog post at https://pair-code.github.io/understanding-umap/.
     """
+
     def __init__(self, split='none', split_ratio=FIT_DEFAULT,
                  random_state=SEED, data_path=DEFAULT_PATH):
         """Init.

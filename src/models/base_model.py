@@ -173,7 +173,7 @@ class BaseModel:
             'rec_time': rec_time,
         }
 
-    def view_rec(self, x, n=8, random_state=42, title=None):
+    def view_img_rec(self, x, n=8, random_state=42, title=None):
         """View n original images and their reconstructions.
 
         Only call this method on images dataset. x is expected to be 4D.
@@ -230,6 +230,69 @@ class BaseModel:
         if title is not None:
             fig.suptitle(title, fontsize=40)
         fig.tight_layout()
+
+        if self.comet_exp is not None:
+            self.comet_exp.log_figure(figure=plt, figure_name=title)
+            plt.clf()
+        else:
+            plt.show()
+
+    def view_surface_rec(self, x, n_max=1000, random_state=42, title=None, dataset_name=None):
+        """View 3D original surface and reconstruction.
+
+        Only call this method on 3D surface datasets. x is expected to be 2D.
+        Will show figure or log it to Comet if self.comet_exp was set.
+
+        Args:
+            x(BaseDataset): Dataset to sample from.
+            n_max(int): Number of points to display.
+            random_state(int): Seed for sampling.
+            title(str): Figure title.
+            dataset_name(str): Dataset name to set customized tilt and rotations.
+
+        """
+        if self.comet_exp is not None:
+            # If comet_exp is set, use different backend to avoid display errors on clusters
+            matplotlib.use('Agg')  # Must be before importing matplotlib.pyplot or pylab!
+        import matplotlib.pyplot as plt
+        from src.data.manifolds import set_axes_equal
+
+        np.random.seed(random_state)
+
+        x_hat = self.reconstruct(x)
+        x, y = x.numpy()
+
+        if x.shape[0] > n_max:
+            sample_mask = np.random.choice(x.shape[0], size=n_max, replace=False)
+            x_hat = x_hat[sample_mask]
+            x = x[sample_mask]
+            y = y[sample_mask]
+
+        scene_dict = dict(SwissRoll=(0, 0), Mammoth=(-15, 90), ToroidalHelices=(30, 0))
+        if dataset_name in scene_dict:
+            tilt, rotation = scene_dict[dataset_name]
+        else:
+            tilt, rotation = 0, 0
+
+        # set up a figure twice as wide as it is tall
+        fig = plt.figure(figsize=plt.figaspect(0.5))
+
+        ax = fig.add_subplot(1, 2, 1, projection='3d')
+        ax.view_init(tilt, rotation)
+        ax.set_title('Input')
+        ax.scatter(*x.T, c=y, cmap='jet', edgecolor='k')
+        set_axes_equal(ax)
+
+        ax = fig.add_subplot(1, 2, 2, projection='3d')
+
+        ax.view_init(tilt, rotation)
+        ax.set_title('Reconstruction')
+        ax.scatter(*x_hat.T, c=y, cmap='jet', edgecolor='k')
+        set_axes_equal(ax)
+
+
+        if title is not None:
+            fig.suptitle(title, fontsize=20)
 
         if self.comet_exp is not None:
             self.comet_exp.log_figure(figure=plt, figure_name=title)
