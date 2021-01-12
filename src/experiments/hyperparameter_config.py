@@ -16,4 +16,8 @@ PARAM_GRID = {
     'margin': stats.loguniform(a=.01, b=100),
 }
 
+# Main seed. Used for train/test splitting and generating hyperparameter combinations
 RANDOM_STATE = 42
+
+# Ancillary seed for sampling validation splits and seeding models
+FOLD_SEEDS = [4837, 2963, 1504, 6387, 5865, 9969, 5313, 2421, 2524, 5511]

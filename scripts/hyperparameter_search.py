@@ -85,11 +85,6 @@ for _, exp_params in schedule.iterrows():
     # Use same random state for all experiments for reproducibility
     params['random_state'] = RANDOM_STATE
 
-    # Replace epochs by max_epochs when doing validation. Early stopping will be used.
-    # Useful to get an idea of the number of epochs to use when training on the full training set
-    if 'epochs' in params.keys():
-        params['epochs'] = params.pop('max_epochs')
-
     # Fetch parameter combination
     param_list = list(ParameterSampler(PARAM_GRID,
                                        n_iter=args.n_iter,

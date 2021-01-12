@@ -14,6 +14,7 @@ import src.data
 import src.models
 from src.experiments.utils import save_dict
 from src.metrics import score_model
+from src.experiments.hyperparameter_config import FOLD_SEEDS
 
 
 def parse_params(exp_params):
@@ -51,7 +52,7 @@ def parse_params(exp_params):
     return model_name, dataset_name, random_state, exp_params
 
 
-def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
+def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=None):
     """Fit model and compute metrics on both train and test sets.
 
     Also log plot and embeddings to comet.
@@ -59,6 +60,7 @@ def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
     Args:
         exp_params(dict): Parameter dict. Should at least have keys model_name, dataset_name & random_state. Other
         keys are assumed to be model parameters.
+        k(int): Fold identifier.
         data_path(str): Data directory.
         write_path(str): Where temp files can be written.
         others(dict): Other things to log to Comet experiment.
@@ -83,10 +85,10 @@ def fit_test(exp_params, data_path, write_path, others=None, custom_tag=None):
     # Fetch and split dataset.
     data_train_full = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
     data_test = getattr(src.data, dataset_name)(split='test', random_state=random_state, data_path=data_path)
-    data_train, data_val = data_train_full.validation_split(fold=8)
+    data_train, data_val = data_train_full.validation_split(random_state=FOLD_SEEDS[k])
 
     # Model
-    m = getattr(src.models, model_name)(random_state=random_state, **model_params)
+    m = getattr(src.models, model_name)(random_state=FOLD_SEEDS[k], **model_params)
     m.comet_exp = exp  # Used by DL models to log metrics between epochs
     m.write_path = write_path
     m.data_val = data_val  # For early stopping
@@ -176,7 +178,7 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=N
 
     # Fetch and split dataset.
     data_train = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
-    data_train, data_val = data_train.validation_split(k)
+    data_train, data_val = data_train.validation_split(random_state=FOLD_SEEDS[k])
 
     # Model
     m = getattr(src.models, model_name)(random_state=random_state, **model_params)

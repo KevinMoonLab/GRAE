@@ -170,14 +170,14 @@ class BaseDataset(Dataset):
             latents = None
         return NoSplitBaseDataset(self.data[sample_mask], self.targets[sample_mask], latents)
 
-    def validation_split(self, fold, ratio=.15):
+    def validation_split(self, ratio=.15, random_state=42):
         """Randomly subsample validation split in self.
 
         Return both train split and validation split as two different BaseDataset objects.
 
         Args:
-            fold(int): Fold number.
             ratio(float): Ratio to allocate to validation split.
+            random_state(int): Seed for sampling.
 
         Returns:
             (tuple) tuple containing:
@@ -185,10 +185,8 @@ class BaseDataset(Dataset):
                 x_val(BaseDataset): Val set.
 
         """
-        # Up to 10 folds
-        FOLD_SEEDS = [4837, 2963, 1504, 6387, 5865, 9969, 5313, 2421, 2524, 5511]
 
-        np.random.seed(FOLD_SEEDS[fold])
+        np.random.seed(random_state)
         sample_mask = np.random.choice(len(self), int(ratio * len(self)), replace=False)
         val_mask = np.full(len(self), False, dtype=bool)
         val_mask[sample_mask] = True
