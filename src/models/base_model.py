@@ -104,6 +104,8 @@ class BaseModel:
         if z_train.shape[1] != 2:
             raise Exception('Can only plot 2D embeddings.')
 
+        plt.figure(figsize=(3.5, 3.5))
+
         if title is not None:
             plt.title(title, fontsize=20)
             plt.xticks([])
@@ -119,7 +121,6 @@ class BaseModel:
             plt.scatter(*z_test.T, c=y_test, cmap=cmap, s=s)
 
         if self.comet_exp is not None:
-            plt.figure(figsize=(1.5, 1.5))
             self.comet_exp.log_figure(figure=plt, figure_name=title)
             plt.clf()
         else:
