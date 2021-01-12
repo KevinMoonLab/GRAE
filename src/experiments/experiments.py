@@ -102,8 +102,11 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=None)
 
     fit_time = fit_stop - fit_start
 
-    # Log plot
-    m.plot(data_train, data_val, title=f'{model_name} : {dataset_name}')
+    # Log plots
+    m.plot(data_train, data_val, title=f'{model_name}_{dataset_name}')
+    if dataset_name in ['Faces', 'RotatedDigits', 'UMIST', 'Tracking', 'COIL100', 'Teapot']:
+        m.view_rec(data_train, title=f'{model_name}_{dataset_name}_train_rec')
+        m.view_rec(data_test, title=f'{model_name}_{dataset_name}_test_rec')
 
     # Score test results first to avoid UMAP bug. See issue #515 of their repo.
     test_z, test_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_test)

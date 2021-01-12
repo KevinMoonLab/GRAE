@@ -2,7 +2,10 @@
 import time
 
 import matplotlib
+import numpy as np
+import scipy.ndimage as ndimage
 from sklearn.metrics import mean_squared_error
+
 
 
 class BaseModel:
@@ -116,7 +119,7 @@ class BaseModel:
             plt.scatter(*z_test.T, c=y_test, cmap=cmap, s=s)
 
         if self.comet_exp is not None:
-            self.comet_exp.log_figure(figure=plt)
+            self.comet_exp.log_figure(figure=plt, figure_name=title)
             plt.clf()
         else:
             plt.show()
@@ -170,29 +173,66 @@ class BaseModel:
             'rec_time': rec_time,
         }
 
-    # def rec_plot(self, x, im_shape, N=8):
-    #     np.random.seed(self.random_state)
-    #
-    #     x_hat = self.reconstruct(x)
-    #     x, _ = x.numpy()
-    #
-    #     sample_mask = np.random.choice(x.shape[0], size=N, replace=False)
-    #     x = x[sample_mask]
-    #     x_hat = x_hat[sample_mask]
-    #
-    #     fig, ax = plt.subplots(N, 2, figsize=(2 * 3.5, N * 3.5))
-    #
-    #     for i in range(ax.shape[0]):
-    #         original = x[i].reshape(im_shape)
-    #         reconstructed = x_hat[i].reshape(im_shape)
-    #
-    #         original = ndimage.rotate(original, -90, reshape=False)
-    #         reconstructed = ndimage.rotate(reconstructed, -90, reshape=False)
-    #
-    #         for j, im in enumerate((original, reconstructed)):
-    #             axis = ax[i, j]
-    #             axis.imshow(im, cmap='Greys_r')
-    #             axis.set_xticks([])
-    #             axis.set_yticks([])
-    #
-    #     plt.show()
+    def view_rec(self, x, n=8, random_state=42, title=None):
+        """View n original images and their reconstructions.
+
+        Only call this method on images dataset. x is expected to be 4D.
+        Will show figure or log it to Comet if self.comet_exp was set.
+
+        Args:
+            x(BaseDataset): Dataset to sample from.
+            n(int): Number of images to sample.
+            random_state(int): Seed for sampling.
+            title(str): Figure title.
+
+        """
+        if self.comet_exp is not None:
+            # If comet_exp is set, use different backend to avoid display errors on clusters
+            matplotlib.use('Agg')  # Must be before importing matplotlib.pyplot or pylab!
+        import matplotlib.pyplot as plt
+
+        np.random.seed(random_state)
+
+        x_hat = self.reconstruct(x)
+        x, _ = x.numpy()
+
+        sample_mask = np.random.choice(x.shape[0], size=n, replace=False)
+        x_hat = x_hat[sample_mask]
+        x = x[sample_mask].reshape(x_hat.shape)
+
+        if x_hat.shape[1] == 1:
+            grayscale = True
+            x_hat = np.squeeze(x_hat)
+            x = np.squeeze(x)
+        elif x_hat.shape[1] == 3:
+            grayscale = False
+            x_hat = np.transpose(x_hat, (0, 2, 3, 1))
+            x = np.transpose(x, (0, 2, 3, 1))
+        else:
+            raise Exception('Invalid number of channels.')
+
+        fig, ax = plt.subplots(2, n, figsize=(n * 3.5, 2.2 + 2 * 3.5))
+
+        for i in range(ax.shape[1]):
+            original = x[i]
+            reconstructed = x_hat[i]
+
+            for j, im in enumerate((original, reconstructed)):
+                axis = ax[j, i]
+                if grayscale:
+                    axis.imshow(im, cmap='Greys_r')
+                else:
+                    axis.imshow(im)
+
+                axis.set_xticks([])
+                axis.set_yticks([])
+
+        if title is not None:
+            fig.suptitle(title, fontsize=40)
+        fig.tight_layout()
+
+        if self.comet_exp is not None:
+            self.comet_exp.log_figure(figure=plt, figure_name=title)
+            plt.clf()
+        else:
+            plt.show()

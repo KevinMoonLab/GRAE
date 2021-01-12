@@ -30,6 +30,8 @@ class Faces(BaseDataset):
     From A Global Geometric Framework for Nonlinear Dimensionality Reduction paper by Tenenbaum et al.
     698 64 x 64 images of a rotating head. Ground truths are horizontal and vertical rotation angles.
 
+    Raw data from  J
+
     """
     def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, data_path=DEFAULT_PATH):
         """Init.
@@ -41,7 +43,7 @@ class Faces(BaseDataset):
             random_state(int, optional): Random seed. See BaseDataset.
             data_path(str, optional): Data directory.
         """
-        self.url = 'http://stt3795.guywolf.org/Devoirs/D02/face_data.mat'
+        self.url = 'https://github.com/jasonfilippou/DimReduce/blob/master/ISOMAP/face_data.mat?raw=true'
         self.root = os.path.join(data_path, 'Faces')
 
         if not os.path.exists(self.root):
@@ -51,6 +53,7 @@ class Faces(BaseDataset):
         d = loadmat(os.path.join(self.root, 'face_data.mat'))
 
         x = d['images'].T
+        print(x.shape)
 
         y = d['poses'].T
 
@@ -67,7 +70,7 @@ class Faces(BaseDataset):
 
         # Reshape dataset in image format
         if ALLOW_CONV:
-            self.data = self.data.view(-1, 1, 64, 64)
+            self.data = self.data.view(-1, 1, 64, 64).permute(0, 1, 3, 2)
 
     def _download(self):
         print('Downloading Faces dataset...')
@@ -288,8 +291,8 @@ class Tracking(BaseDataset):
 
                     # Add noise using skimage
                     bg_copy = np.array(bg_copy)
-                    # bg_copy = random_noise(bg_copy, mode='gaussian',
-                    #                        seed=((43 * i + 1) * (101 * j + 1)) % 74501, var=0.05)
+                    bg_copy = random_noise(bg_copy, mode='gaussian',
+                                           seed=((43 * i + 1) * (101 * j + 1)) % 74501, var=0)
                     bg_copy = Image.fromarray((bg_copy * 255).astype(np.uint8))
 
                     bg_copy.paste(sprite, (i, j), sprite)
