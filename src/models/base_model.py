@@ -119,6 +119,7 @@ class BaseModel:
             plt.scatter(*z_test.T, c=y_test, cmap=cmap, s=s)
 
         if self.comet_exp is not None:
+            plt.figure(figsize=(1.5, 1.5))
             self.comet_exp.log_figure(figure=plt, figure_name=title)
             plt.clf()
         else:
