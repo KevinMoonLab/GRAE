@@ -53,7 +53,6 @@ class Faces(BaseDataset):
         d = loadmat(os.path.join(self.root, 'face_data.mat'))
 
         x = d['images'].T
-        print(x.shape)
 
         y = d['poses'].T
 

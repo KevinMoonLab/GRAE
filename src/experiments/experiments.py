@@ -105,8 +105,9 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=None)
     # Log plots
     m.plot(data_train, data_test, title=f'{model_name}_{dataset_name}')
     if dataset_name in ['Faces', 'RotatedDigits', 'UMIST', 'Tracking', 'COIL100', 'Teapot']:
-        m.view_img_rec(data_train, title=f'{model_name}_{dataset_name}_train_rec')
-        m.view_img_rec(data_test, title=f'{model_name}_{dataset_name}_test_rec')
+        m.view_img_rec(data_train, choice='random', title=f'{model_name}_{dataset_name}_train_rec')
+        m.view_img_rec(data_test, choice='best', title=f'{model_name}_{dataset_name}_test_rec_best')
+        m.view_img_rec(data_test, choice='worst', title=f'{model_name}_{dataset_name}_test_rec_worst')
     elif dataset_name in ['SwissRoll', 'ToroidalHelices', 'Mammoth']:
         m.view_surface_rec(data_train, title=f'{model_name}_{dataset_name}_train_rec', dataset_name=dataset_name)
         m.view_surface_rec(data_test, title=f'{model_name}_{dataset_name}_test_rec', dataset_name=dataset_name)

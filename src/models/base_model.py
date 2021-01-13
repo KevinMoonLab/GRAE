@@ -175,7 +175,7 @@ class BaseModel:
             'rec_time': rec_time,
         }
 
-    def view_img_rec(self, x, n=8, random_state=42, title=None):
+    def view_img_rec(self, x, n=8, random_state=42, title=None, choice='random'):
         """View n original images and their reconstructions.
 
         Only call this method on images dataset. x is expected to be 4D.
@@ -186,6 +186,8 @@ class BaseModel:
             n(int): Number of images to sample.
             random_state(int): Seed for sampling.
             title(str): Figure title.
+            choice(str): 'random' for n random images in dataset. 'best' for images with best reconstructions. 'worst'
+            for images with worst reconstructions.
 
         """
         if self.comet_exp is not None:
@@ -198,7 +200,19 @@ class BaseModel:
         x_hat = self.reconstruct(x)
         x, _ = x.numpy()
 
-        sample_mask = np.random.choice(x.shape[0], size=n, replace=False)
+        if choice == 'random':
+            sample_mask = np.random.choice(x.shape[0], size=n, replace=False)
+        else:
+            n_sample = x.shape[0]
+            mse = mean_squared_error(x.reshape((n_sample, -1)).T, x_hat.reshape((n_sample, -1)).T, multioutput='raw_values')
+            mse_rank = np.argsort(mse)
+            if choice == 'worst':
+                sample_mask = mse_rank[-n:]
+            elif choice == 'best':
+                sample_mask = mse_rank[:n]
+            else:
+                raise Exception('Choice name should be random, best or worst.')
+
         x_hat = x_hat[sample_mask]
         x = x[sample_mask].reshape(x_hat.shape)
 
