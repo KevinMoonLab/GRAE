@@ -84,6 +84,25 @@ class GRAEUMAP(GRAEBase):
                          relax=relax,
                          **kwargs)
 
+class GRAEUMAP_R(GRAEBase):
+    """Relaxed GRAE with UMAP regularization."""
+
+    def __init__(self, *, lam=10, n_neighbors=15, min_dist=.1, **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Initial regularization factor. Will be relaxed throughout training.
+            n_neighbors(int): The size of local neighborhood (in terms of number of neighboring sample points) used for
+            manifold approximation.
+            min_dist(float):  The effective minimum distance between embedded points.
+            relax(bool): Use the lambda relaxation scheme. Set to false to use constant lambda throughout training.
+            **kwargs: All other arguments with keys are passed to the GRAEBase parent class.
+        """
+        super().__init__(lam=lam,
+                         embedder=UMAP,
+                         embedder_params=dict(n_neighbors=n_neighbors, min_dist=min_dist),
+                         relax=True,
+                         **kwargs)
 
 class TopoAE(AE):
     """Topological Autoencoder.

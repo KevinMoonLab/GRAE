@@ -509,17 +509,25 @@ class GRAEBase(AE):
     def end_epoch(self, epoch):
         """Method called at the end of every training epoch.
 
-        Used here to decay lambda according to the scheme described in the paper.
+        Previously used to decay lambda according to the scheme described in the IEEE paper.
+
+        Now using a scheme adapted to early stopping : turn off geometric regularization when reaching 50 % of patience
 
         Args:
             epoch(int): Current epoch.
 
         """
+        if self.relax and self.lam > 0 and self.early_stopping_count == int(self.patience/2):
+            self.lam = 0  # Turn off constraint
+
+            if self.comet_exp is not None:
+                self.comet_exp.log_metric('relaxation', epoch, epoch=epoch)
+
         # Sigmoid shape that quickly drops from lam_original to 0 around 50 % of training epochs.
-        if self.relax:
-            self.lam = (-self.lam_original * np.exp((epoch - (self.epochs / 2)) * 0.2)) / (
-                    1 + np.exp((epoch - (self.epochs / 2)) * 0.2)) \
-                       + self.lam_original
+        # if self.relax:
+        #     self.lam = (-self.lam_original * np.exp((epoch - (self.epochs / 2)) * 0.2)) / (
+        #             1 + np.exp((epoch - (self.epochs / 2)) * 0.2)) \
+        #                + self.lam_original
 
 
 class GRAE(GRAEBase):
@@ -551,6 +559,31 @@ class GRAE(GRAEBase):
                                               n_jobs=-1),
                          **kwargs)
 
+
+class GRAE_R(GRAEBase):
+    """Relaxed GRAE class with PHATE-based geometric regularization.
+    """
+
+    def __init__(self, *, lam=10, knn=5, gamma=1, t='auto', **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Initial regularization factor. Will be relaxed throughout training.
+            knn(int): knn argument of PHATE. Number of neighbors to consider in knn graph.
+            t(int): Number of steps of the diffusion operator. Can also be set to 'auto' to select t according to the
+            knee point in the Von Neumann Entropy of the diffusion operator
+            gamma(float): Informational distance.
+            **kwargs: All other keyword arguments are passed to the GRAEBase parent class.
+        """
+        super().__init__(lam=lam,
+                         relax=True,
+                         embedder=PHATE,
+                         embedder_params=dict(knn=knn,
+                                              t=t,
+                                              gamma=gamma,
+                                              verbose=0,
+                                              n_jobs=-1),
+                         **kwargs)
 
 class SmallGRAE(GRAE):
     """GRAE class with fixed small geometric regularization factor."""
