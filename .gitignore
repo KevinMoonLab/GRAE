@@ -1,5 +1,6 @@
 /data/
 /exp_schedule/
+/models/
 /embeddings/
 /results/
 /.idea/

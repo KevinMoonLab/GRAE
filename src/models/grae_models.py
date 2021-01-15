@@ -177,7 +177,7 @@ class AE(BaseModel):
         self.conv_fc_dims = conv_fc_dims
         self.noise = noise
         self.comet_exp = comet_exp
-        self.data_dim = None
+        self.data_shape = None  # Shape of input data
 
         # Early stopping attributes
         self.data_val = data_val
@@ -186,6 +186,38 @@ class AE(BaseModel):
         self.current_loss_min = np.inf
         self.early_stopping_count = 0
         self.write_path = write_path
+
+    def init_torch_module(self, data_shape):
+        """Infer autoencoder architecture (MLP or Convolutional + MLP) from data shape.
+
+        Initialize torch module.
+
+        Args:
+            data_shape(tuple[int]): Shape of one sample.
+
+        """
+        # Infer input size from data. Initialize torch module and optimizer
+        if len(data_shape) == 1:
+            # Samples are flat vectors. MLP case
+            input_size = data_shape[0]
+            self.torch_module = AutoencoderModule(input_dim=input_size,
+                                                  hidden_dims=self.hidden_dims,
+                                                  z_dim=self.n_components,
+                                                  noise=self.noise)
+        elif len(data_shape) == 3:
+            in_channel, height, width = data_shape
+            #  Samples are 3D tensors (i.e. images). Convolutional case.
+            self.torch_module = ConvAutoencoderModule(H=height,
+                                                      W=width,
+                                                      input_channel=in_channel,
+                                                      channel_list=self.conv_dims,
+                                                      hidden_dims=self.conv_fc_dims,
+                                                      z_dim=self.n_components,
+                                                      noise=self.noise)
+        else:
+            raise Exception(f'Invalid channel number. X has {len(x[0][0].shape)}')
+
+        self.torch_module.to(DEVICE)
 
     def fit(self, x):
         """Fit model to data.
@@ -200,31 +232,12 @@ class AE(BaseModel):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-        # Save data dimensionality
-        self.data_dim = torch.flatten(x[0][0]).shape[0]
+        # Save data shape
+        self.data_shape = x[0][0].shape
 
         # Fetch appropriate torch module
         if self.torch_module is None:
-            # Infer input size from data. Initialize torch module and optimizer
-            if len(x[0][0].shape) == 1:
-                # Samples are flat vectors. FC case
-                input_size = x[0][0].shape[0]
-                self.torch_module = AutoencoderModule(input_dim=input_size,
-                                                      hidden_dims=self.hidden_dims,
-                                                      z_dim=self.n_components,
-                                                      noise=self.noise)
-            elif len(x[0][0].shape) == 3:
-                in_channel, height, width = x[0][0].shape
-                #  Samples are 3D tensors (i.e. images). Convolutional case.
-                self.torch_module = ConvAutoencoderModule(H=height,
-                                                          W=width,
-                                                          input_channel=in_channel,
-                                                          channel_list=self.conv_dims,
-                                                          hidden_dims=self.conv_fc_dims,
-                                                          z_dim=self.n_components,
-                                                          noise=self.noise)
-            else:
-                raise Exception(f'Invalid channel number. X has {len(x[0][0].shape)}')
+            self.init_torch_module(self.data_shape)
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.torch_module.parameters(),
@@ -232,10 +245,10 @@ class AE(BaseModel):
                                           weight_decay=self.weight_decay)
         # Train AE
         # Training steps are decomposed as calls to specific methods that can be overriden by children class if need be
-        self.torch_module.to(DEVICE)
         self.torch_module.train()
 
         self.loader = self.get_loader(x)
+
         if self.data_val is not None:
             self.val_loader = self.get_loader(self.data_val)
 
@@ -260,10 +273,11 @@ class AE(BaseModel):
                 break
 
         # Load checkpoint if it exists
-        cp = os.path.join(self.write_path, 'checkpoint.pt')
-        if os.path.exists(cp):
-            self.torch_module.load_state_dict(torch.load(cp))
-            os.remove(cp)
+        checkpoint_path = os.path.join(self.write_path, 'checkpoint.pt')
+
+        if os.path.exists(checkpoint_path):
+            self.load(checkpoint_path)
+            os.remove(checkpoint_path)
 
     def get_loader(self, x):
         """Fetch data loader.
@@ -365,7 +379,7 @@ class AE(BaseModel):
                 # If new min, update attributes and checkpoint model
                 self.current_loss_min = val_mse
                 self.early_stopping_count = 0
-                torch.save(self.torch_module.state_dict(), os.path.join(self.write_path, 'checkpoint.pt'))
+                self.save(os.path.join(self.write_path, 'checkpoint.pt'))
             else:
                 self.early_stopping_count += 1
 
@@ -414,6 +428,31 @@ class AE(BaseModel):
 
         return np.concatenate(x_hat)
 
+    def save(self, path):
+        """Save state dict.
+
+        Args:
+            path(str): File path.
+
+        """
+        state = self.torch_module.state_dict()
+        state['data_shape'] = self.data_shape
+        torch.save(state, path)
+
+    def load(self, path):
+        """Load state dict.
+
+        Args:
+            path(str): File path.
+
+        """
+        state = torch.load(path)
+        data_shape = state.pop('data_shape')
+
+        if self.torch_module is None:
+            self.init_torch_module(data_shape)
+
+        self.torch_module.load_state_dict(state)
 
 class GRAEBase(AE):
     """Standard GRAE class.
