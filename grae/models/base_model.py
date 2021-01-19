@@ -271,7 +271,7 @@ class BaseModel:
             # If comet_exp is set, use different backend to avoid display errors on clusters
             matplotlib.use('Agg')  # Must be before importing matplotlib.pyplot or pylab!
         import matplotlib.pyplot as plt
-        from src.data.manifolds import set_axes_equal
+        from grae.data.manifolds import set_axes_equal
 
         np.random.seed(random_state)
 

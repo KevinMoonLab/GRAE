@@ -12,7 +12,7 @@ import numpy as np
 from sklearn import datasets
 import phate
 
-from src.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
+from grae.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
 
 # Default number of samples for synthetic manifolds
 SAMPLE = 10000

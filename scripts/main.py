@@ -12,8 +12,8 @@ import comet_ml
 
 import pandas as pd
 
-from src.experiments.experiments import fit_test
-from src.experiments.hyperparameter_config import RANDOM_STATE
+from grae.experiments.experiments import fit_test
+from grae.experiments.hyperparameter_config import RANDOM_STATE
 
 # Parser
 parser = argparse.ArgumentParser(description='Run full experiments with specific hyper parameters '

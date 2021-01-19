@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from src.data.base_dataset import DEVICE  # Torch device
+from grae.data.base_dataset import DEVICE  # Torch device
 
 '''
 Methods for calculating lower-dimensional persistent homology.

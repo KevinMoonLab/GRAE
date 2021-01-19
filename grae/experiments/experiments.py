@@ -10,11 +10,11 @@ import copy
 
 from comet_ml import Experiment
 
-import src.data
-import src.models
-from src.experiments.utils import save_dict
-from src.metrics import score_model
-from src.experiments.hyperparameter_config import FOLD_SEEDS
+import grae.data
+import grae.models
+from grae.experiments.utils import save_dict
+from grae.metrics import score_model
+from grae.experiments.hyperparameter_config import FOLD_SEEDS
 
 
 def parse_params(exp_params):
@@ -83,12 +83,12 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=None)
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
 
     # Fetch and split dataset.
-    data_train_full = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
-    data_test = getattr(src.data, dataset_name)(split='test', random_state=random_state, data_path=data_path)
+    data_train_full = getattr(grae.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
+    data_test = getattr(grae.data, dataset_name)(split='test', random_state=random_state, data_path=data_path)
     data_train, data_val = data_train_full.validation_split(random_state=FOLD_SEEDS[k])
 
     # Model
-    m = getattr(src.models, model_name)(random_state=FOLD_SEEDS[k], **model_params)
+    m = getattr(grae.models, model_name)(random_state=FOLD_SEEDS[k], **model_params)
     m.comet_exp = exp  # Used by DL models to log metrics between epochs
     m.write_path = write_path
     m.data_val = data_val  # For early stopping
@@ -184,11 +184,11 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=N
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
 
     # Fetch and split dataset.
-    data_train = getattr(src.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
+    data_train = getattr(grae.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
     data_train, data_val = data_train.validation_split(random_state=FOLD_SEEDS[k])
 
     # Model
-    m = getattr(src.models, model_name)(random_state=random_state, **model_params)
+    m = getattr(grae.models, model_name)(random_state=random_state, **model_params)
     m.comet_exp = exp
     m.write_path = write_path
     m.data_val = data_val

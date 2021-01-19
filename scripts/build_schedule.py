@@ -7,7 +7,7 @@ import math
 
 import pandas as pd
 from sklearn.model_selection import ParameterSampler
-from src.experiments.hyperparameter_config import PARAM_GRID, RANDOM_STATE
+from grae.experiments.hyperparameter_config import PARAM_GRID, RANDOM_STATE
 
 SEARCH_RESULTS = os.path.join('..', 'results', 'search_results_jan_9.csv')
 MAIN_SCHEDULE = os.path.join('..', 'exp_schedule', 'main.csv')  # Use as reference to generate new schedule

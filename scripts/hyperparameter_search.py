@@ -15,8 +15,8 @@ import comet_ml
 import pandas as pd
 from sklearn.model_selection import ParameterSampler
 
-from src.experiments.hyperparameter_config import PARAM_GRID, RANDOM_STATE
-from src.experiments.experiments import fit_validate
+from grae.experiments.hyperparameter_config import PARAM_GRID, RANDOM_STATE
+from grae.experiments.experiments import fit_validate
 
 # Parser
 parser = argparse.ArgumentParser(

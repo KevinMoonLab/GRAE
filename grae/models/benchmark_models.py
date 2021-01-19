@@ -6,10 +6,10 @@ import umap
 from sklearn.neighbors import NearestNeighbors
 from pydiffmap import diffusion_map as dm
 
-from src.models.grae_models import AE, GRAEBase
-from src.models.base_model import BaseModel
-from src.models.external_tools.topological_loss import TopoAELoss, compute_distance_matrix
-from src.data.base_dataset import DEVICE
+from grae.models.grae_models import AE, GRAEBase
+from grae.models.base_model import BaseModel
+from grae.models.external_tools.topological_loss import TopoAELoss, compute_distance_matrix
+from grae.data.base_dataset import DEVICE
 
 
 class UMAP(umap.UMAP, BaseModel):

@@ -7,11 +7,11 @@ import numpy as np
 import phate
 import scipy
 
-from src.data.base_dataset import DEVICE
-from src.data.base_dataset import FromNumpyDataset
-from src.models import BaseModel
-from src.models.external_tools.procrustes import procrustes
-from src.models.torch_modules import AutoencoderModule, ConvAutoencoderModule
+from grae.data.base_dataset import DEVICE
+from grae.data.base_dataset import FromNumpyDataset
+from grae.models import BaseModel
+from grae.models.external_tools.procrustes import procrustes
+from grae.models.torch_modules import AutoencoderModule, ConvAutoencoderModule
 
 # Hyperparameters defaults
 SEED = 42
@@ -215,7 +215,7 @@ class AE(BaseModel):
                                                       z_dim=self.n_components,
                                                       noise=self.noise)
         else:
-            raise Exception(f'Invalid channel number. X has {len(x[0][0].shape)}')
+            raise Exception(f'Invalid channel number. X has {len(data_shape)}')
 
         self.torch_module.to(DEVICE)
 
@@ -454,6 +454,7 @@ class AE(BaseModel):
 
         self.torch_module.load_state_dict(state)
 
+
 class GRAEBase(AE):
     """Standard GRAE class.
 
@@ -556,7 +557,7 @@ class GRAEBase(AE):
             epoch(int): Current epoch.
 
         """
-        if self.relax and self.lam > 0 and self.early_stopping_count == int(self.patience/2):
+        if self.relax and self.lam > 0 and self.early_stopping_count == int(self.patience / 2):
             self.lam = 0  # Turn off constraint
 
             if self.comet_exp is not None:
@@ -623,6 +624,7 @@ class GRAE_R(GRAEBase):
                                               verbose=0,
                                               n_jobs=-1),
                          **kwargs)
+
 
 class SmallGRAE(GRAE):
     """GRAE class with fixed small geometric regularization factor."""
