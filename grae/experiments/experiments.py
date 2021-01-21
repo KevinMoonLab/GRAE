@@ -52,7 +52,7 @@ def parse_params(exp_params):
     return model_name, dataset_name, random_state, exp_params
 
 
-def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=None):
+def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
     """Fit model and compute metrics on both train and test sets.
 
     Also log plot and embeddings to comet.
@@ -70,14 +70,12 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=None)
     # Comet experiment
     exp = Experiment(parse_args=False)
     exp.disable_mp()
-    exp.add_tag('test')
+    custom_tag += '_test'
+    exp.add_tag(custom_tag)
     exp.log_parameters(exp_params)
 
     if others is not None:
         exp.log_others(others)
-
-    if custom_tag is not None:
-        exp.add_tag(custom_tag)
 
     # Parse experiment parameters
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
@@ -153,7 +151,7 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=None)
     exp.log_other('success', 1)
 
 
-def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=None):
+def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=''):
     """Fit model and compute metrics on train and validation set. Intended for hyperparameter search.
 
     Only logs metric and scatter plot of final embedding.
@@ -171,14 +169,12 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=N
     # Comet experiment
     exp = Experiment(parse_args=False)
     exp.disable_mp()
-    exp.add_tag('hyper')
+    custom_tag += '_validate'
+    exp.add_tag(custom_tag)
     exp.log_parameters(exp_params)
 
     if others is not None:
         exp.log_others(others)
-
-    if custom_tag is not None:
-        exp.add_tag(custom_tag)
 
     # Parse experiment parameters
     model_name, dataset_name, random_state, model_params = parse_params(exp_params)
@@ -188,7 +184,7 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=N
     data_train, data_val = data_train.validation_split(random_state=FOLD_SEEDS[k])
 
     # Model
-    m = getattr(grae.models, model_name)(random_state=random_state, **model_params)
+    m = getattr(grae.models, model_name)(random_state=FOLD_SEEDS[k], **model_params)
     m.comet_exp = exp
     m.write_path = write_path
     m.data_val = data_val

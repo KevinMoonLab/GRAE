@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-FIT_DEFAULT = .8  # Default train split ratio
+FIT_DEFAULT = .85  # Default train/test split ratio
 SEED = 42  # Default seed for splitting
 
 DEFAULT_PATH = os.path.join(os.getcwd(), 'data')
@@ -52,7 +52,6 @@ class FromNumpyDataset(Dataset):
             return data
         else:
             return data[idx]
-
 
 class BaseDataset(Dataset):
     """Template class for all datasets in the project.
@@ -170,13 +169,14 @@ class BaseDataset(Dataset):
             latents = None
         return NoSplitBaseDataset(self.data[sample_mask], self.targets[sample_mask], latents)
 
-    def validation_split(self, ratio=.15, random_state=42):
+    def validation_split(self, ratio=.15/FIT_DEFAULT, random_state=42):
         """Randomly subsample validation split in self.
 
         Return both train split and validation split as two different BaseDataset objects.
 
         Args:
-            ratio(float): Ratio to allocate to validation split.
+            ratio(float): Ratio of train split to allocate to validation split. Default option is to sample 15 % of
+            full dataset, by adjusting with the initial train/test ratio.
             random_state(int): Seed for sampling.
 
         Returns:

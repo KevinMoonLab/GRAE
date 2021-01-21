@@ -3,7 +3,6 @@ import time
 
 import matplotlib
 import numpy as np
-import scipy.ndimage as ndimage
 from sklearn.metrics import mean_squared_error
 
 
