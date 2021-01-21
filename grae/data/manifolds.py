@@ -172,6 +172,18 @@ class FullSwissRoll(Surface):
         # variable we aim to recover
         y_pure = copy.deepcopy(x[:, 1])
         latents = np.vstack((y, y_pure)).T
+        min = np.min(latents, axis=0)
+        max = np.max(latents, axis=0)
+        centers = (max + min)/2
+        ranges = np.abs(max - centers)
+        upper_bounds = centers + np.array([.5, .7]) * ranges
+        lower_bounds = centers - np.array([.5, .7]) * ranges
+
+        self.interpolation_test = np.arange(x.shape[0])[(latents[:, 0] > lower_bounds[0])
+                                                        & (latents[:, 0] < upper_bounds[0])
+                                                        & (latents[:, 1] > lower_bounds[1])
+                                                        & (latents[:, 1] < upper_bounds[1])]
+        print(self.interpolation_test.shape)
 
         # Normalize
         x = scipy.stats.zscore(x)
@@ -183,7 +195,7 @@ class FullSwissRoll(Surface):
         # Take the sli_points points closest to origin
         # This is not used by the base class, but will be used by the SwissRoll
         # children class to remove a thin slice from the roll
-        self.test_idx = sort[0:sli_points]
+        self.slice_idx = sort[0:sli_points]
 
         # Apply rotation  to achieve same variance on all axes
         x[:, 1] *= factor
@@ -222,14 +234,13 @@ class FullSwissRoll(Surface):
 
 
 class SwissRoll(FullSwissRoll):
-    """Swiss Roll class where the test split is a thin 'ribbon' of sli_points
-    points removed from the middle of the manifold to test out of distribution robustness.
+    """Swiss Roll class where part of the manifold is removed for testing.
 
     This is the dataset used in the GRAE paper."""
 
     def __init__(self, n_samples=SAMPLE, sli_points=250, split='none',
                  split_ratio=FIT_DEFAULT, random_state=SEED,
-                 data_path=DEFAULT_PATH):
+                 data_path=DEFAULT_PATH, test_mode='slice', factor=6):
         """Init.
 
         Args:
@@ -240,10 +251,15 @@ class SwissRoll(FullSwissRoll):
             sli_points(int, optional): Remove sli_points closest to origin on the "length" dimension and use them as
             the test split.
             data_path(str, optional): Unused. Only to share same signature with other datasets.
+            test_mode(str, optional): 'slice' to remove a thin 'ribbon' of sli_points points removed from the middle of
+            the manifold to test out of distribution generalization. 'interpolation' to remove a square in the
+            plane of the roll and use it for testing.
+            factor(int, optional): Stretch factor for the roll.
         """
+        self.test_mode = test_mode
 
         super().__init__(n_samples, split, split_ratio=split_ratio,
-                         random_state=random_state, sli_points=sli_points)
+                         random_state=random_state, sli_points=sli_points, factor=factor)
 
     def get_split(self, x, y, split, split_ratio, random_state, labels=None):
         """Split dataset.
@@ -264,7 +280,14 @@ class SwissRoll(FullSwissRoll):
         if split == 'none':
             return torch.from_numpy(x), torch.from_numpy(y)
 
-        x_train, y_train, x_test, y_test = slice_3D(x, y, self.test_idx)
+        if self.test_mode == 'slice':
+            test_idx = self.slice_idx
+        elif self.test_mode == 'interpolation':
+            test_idx = self.interpolation_test
+        else:
+            raise NotImplementedError()
+
+        x_train, y_train, x_test, y_test = slice_3D(x, y, test_idx)
 
         if split == 'train':
             return torch.from_numpy(x_train), torch.from_numpy(y_train)
