@@ -151,7 +151,7 @@ class FullSwissRoll(Surface):
     """
 
     def __init__(self, n_samples=SAMPLE, split='none', split_ratio=FIT_DEFAULT,
-                 random_state=SEED, factor=6, sli_points=250,
+                 random_state=SEED, factor=1, sli_points=250,
                  data_path=DEFAULT_PATH):
         """Init.
 
@@ -176,53 +176,16 @@ class FullSwissRoll(Surface):
         max = np.max(latents, axis=0)
         centers = (max + min)/2
         ranges = np.abs(max - centers)
-        upper_bounds = centers + np.array([.5, .7]) * ranges
-        lower_bounds = centers - np.array([.5, .7]) * ranges
+        upper_bounds = centers + np.array([.8, .3]) * ranges
+        lower_bounds = centers - np.array([.8, .3]) * ranges
 
         self.interpolation_test = np.arange(x.shape[0])[(latents[:, 0] > lower_bounds[0])
                                                         & (latents[:, 0] < upper_bounds[0])
                                                         & (latents[:, 1] > lower_bounds[1])
                                                         & (latents[:, 1] < upper_bounds[1])]
-        print(self.interpolation_test.shape)
 
         # Normalize
         x = scipy.stats.zscore(x)
-
-        # Get absolute distance from origin
-        ab = np.abs(x[:, 1])
-        sort = np.argsort(ab)
-
-        # Take the sli_points points closest to origin
-        # This is not used by the base class, but will be used by the SwissRoll
-        # children class to remove a thin slice from the roll
-        self.slice_idx = sort[0:sli_points]
-
-        # Apply rotation  to achieve same variance on all axes
-        x[:, 1] *= factor
-
-        theta = math.pi / 4
-        phi = math.pi / 3.3
-        rho = 0
-
-        cos = math.cos(theta)
-        sin = math.sin(theta)
-
-        cos_phi = math.cos(phi)
-        sin_phi = math.sin(phi)
-
-        cos_rho = math.cos(rho)
-        sin_rho = math.sin(rho)
-
-        rot = np.array([[cos, 0, sin], [0, 1, 0], [-sin, 0, cos]])
-
-        rot_2 = np.array(
-            [[cos_phi, -sin_phi, 0], [sin_phi, cos_phi, 0], [0, 0, 1]])
-        rot_3 = np.array(
-            [[1, 0, 0], [0, cos_rho, -sin_rho], [0, sin_rho, cos_rho]])
-
-        x = x @ rot_2 @ rot_3 @ rot
-        x = scipy.stats.zscore(x)  # Normalize for true unit variance
-
         super().__init__(x, latents, split, split_ratio, random_state)
 
         # Latent variables are the coordinate on the "length" dimension and the color given by Sklearn
@@ -240,7 +203,7 @@ class SwissRoll(FullSwissRoll):
 
     def __init__(self, n_samples=SAMPLE, sli_points=250, split='none',
                  split_ratio=FIT_DEFAULT, random_state=SEED,
-                 data_path=DEFAULT_PATH, test_mode='slice', factor=6):
+                 data_path=DEFAULT_PATH, test_mode='slice', factor=1):
         """Init.
 
         Args:

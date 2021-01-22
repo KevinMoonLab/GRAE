@@ -12,7 +12,7 @@ PARAM_GRID = {
     'n_neighbors': neighbor_param,
     'min_dist': stats.uniform(loc=0, scale=.99),
     'epsilon': stats.loguniform(a=.01, b=250),
-    'lam': stats.loguniform(a=1e-2, b=1e1),
+    'lam': stats.loguniform(a=1e-2, b=1e2),
     'margin': stats.loguniform(a=.01, b=10),
 }
 
