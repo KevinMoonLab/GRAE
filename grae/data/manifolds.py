@@ -174,18 +174,32 @@ class FullSwissRoll(Surface):
         latents = np.vstack((y, y_pure)).T
         min = np.min(latents, axis=0)
         max = np.max(latents, axis=0)
-        centers = (max + min)/2
+        centers = (max + min) / 2
         ranges = np.abs(max - centers)
         upper_bounds = centers + np.array([.8, .3]) * ranges
         lower_bounds = centers - np.array([.8, .3]) * ranges
 
-        self.interpolation_test = np.arange(x.shape[0])[(latents[:, 0] > lower_bounds[0])
-                                                        & (latents[:, 0] < upper_bounds[0])
-                                                        & (latents[:, 1] > lower_bounds[1])
-                                                        & (latents[:, 1] < upper_bounds[1])]
+        self.interpolation_test = np.arange(x.shape[0])[
+            (latents[:, 0] > lower_bounds[0])
+            & (latents[:, 0] < upper_bounds[0])
+            & (latents[:, 1] > lower_bounds[1])
+            & (latents[:, 1] < upper_bounds[1])]
 
         # Normalize
         x = scipy.stats.zscore(x)
+
+        # Get absolute distance from origin
+        ab = np.abs(x[:, 1])
+        sort = np.argsort(ab)
+
+        # Take the sli_points points closest to origin
+        # This is not used by the base class, but will be used by the SwissRoll
+        # children class to remove a thin slice from the roll
+        self.slice_idx = sort[0:sli_points]
+
+        # Apply rotation  to achieve same variance on all axes
+        x[:, 1] *= factor
+
         super().__init__(x, latents, split, split_ratio, random_state)
 
         # Latent variables are the coordinate on the "length" dimension and the color given by Sklearn
@@ -222,7 +236,8 @@ class SwissRoll(FullSwissRoll):
         self.test_mode = test_mode
 
         super().__init__(n_samples, split, split_ratio=split_ratio,
-                         random_state=random_state, sli_points=sli_points, factor=factor)
+                         random_state=random_state, sli_points=sli_points,
+                         factor=factor)
 
     def get_split(self, x, y, split, split_ratio, random_state, labels=None):
         """Split dataset.
