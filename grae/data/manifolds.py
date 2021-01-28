@@ -151,7 +151,7 @@ class FullSwissRoll(Surface):
     """
 
     def __init__(self, n_samples=SAMPLE, split='none', split_ratio=FIT_DEFAULT,
-                 random_state=SEED, factor=1, sli_points=250,
+                 random_state=SEED, factor=6, sli_points=250,
                  data_path=DEFAULT_PATH):
         """Init.
 
@@ -217,7 +217,7 @@ class SwissRoll(FullSwissRoll):
 
     def __init__(self, n_samples=SAMPLE, sli_points=250, split='none',
                  split_ratio=FIT_DEFAULT, random_state=SEED,
-                 data_path=DEFAULT_PATH, test_mode='slice', factor=1):
+                 data_path=DEFAULT_PATH, test_mode='interpolation', factor=1):
         """Init.
 
         Args:
