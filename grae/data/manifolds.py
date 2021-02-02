@@ -143,7 +143,7 @@ class SCurve(Surface):
         super().__init__(x, y, split, split_ratio, random_state)
 
 
-class FullSwissRoll(Surface):
+class SwissRoll(Surface):
     """Standard Swiss Roll dataset.
 
     Stretched, rotated and rescaled to ensure the manifold is not aligned with the original axes and the data has
@@ -151,22 +151,32 @@ class FullSwissRoll(Surface):
     """
 
     def __init__(self, n_samples=SAMPLE, split='none', split_ratio=FIT_DEFAULT,
-                 random_state=SEED, factor=6, sli_points=250,
+                 random_state=SEED, factor=6, test_mode='uniform', sli_points=500, noise=0,
                  data_path=DEFAULT_PATH):
         """Init.
 
         Args:
             n_samples(int, optional): Number of points to sample from the manifold.
             split(str, optional): Name of split. See BaseDataset.
-            split_ratio(float, optional): Ratio of train split. See BaseDataset.
+            split_ratio(float, optional): Ratio of train split. See BaseDataset. Note : Only used if
+            test_mode='uniform'.
             random_state(int, optional): Random seed. See BaseDataset.
             factor(int, optional): Stretch factor for the roll.
+            test_mode(str, optional): 'uniform' to uniformly sample a test set from the manifold, 'slice' to remove a
+            thin ribbon of sli_points points from the middle of the manifold for testing (creating two disconnected
+            components in the train set) or 'interpolation' to remove a square in the plane of the roll and use it for
+            testing.
             sli_points(int, optional): Remove sli_points closest to origin on the "length" dimension and use them as the
-            test split. Note: Not used by this class, see SwissRoll. FullSwissRoll uses uniform sampling to determine the splits.
+            test split. Note: Only used if test_mode='slice'.
+            noise(float, optional): Standard deviation of gaussian noise.
             data_path(str, optional): Unused. Only to share same signature with other datasets.
         """
+        self.test_mode = test_mode
+
+        # Get noise free data to determine the test indices
         x, y = datasets.make_swiss_roll(n_samples=n_samples,
-                                        random_state=random_state)
+                                        random_state=random_state,
+                                        noise=0)
 
         # Backup first axis, as it represents one of the underlying latent
         # variable we aim to recover
@@ -179,7 +189,7 @@ class FullSwissRoll(Surface):
         upper_bounds = centers + np.array([.8, .3]) * ranges
         lower_bounds = centers - np.array([.8, .3]) * ranges
 
-        self.interpolation_test = np.arange(x.shape[0])[
+        self.interpolation_idx = np.arange(x.shape[0])[
             (latents[:, 0] > lower_bounds[0])
             & (latents[:, 0] < upper_bounds[0])
             & (latents[:, 1] > lower_bounds[1])
@@ -197,7 +207,14 @@ class FullSwissRoll(Surface):
         # children class to remove a thin slice from the roll
         self.slice_idx = sort[0:sli_points]
 
-        # Apply rotation  to achieve same variance on all axes
+        # Get noisy data
+        x, y = datasets.make_swiss_roll(n_samples=n_samples,
+                                        random_state=random_state,
+                                        noise=noise)
+        # Normalize
+        x = scipy.stats.zscore(x)
+
+        # Stretch Roll
         x[:, 1] *= factor
 
         super().__init__(x, latents, split, split_ratio, random_state)
@@ -208,36 +225,6 @@ class FullSwissRoll(Surface):
 
         # Only keep one latent as target for compatibility with other datasets
         self.targets = self.targets[:, 0]
-
-
-class SwissRoll(FullSwissRoll):
-    """Swiss Roll class where part of the manifold is removed for testing.
-
-    This is the dataset used in the GRAE paper."""
-
-    def __init__(self, n_samples=SAMPLE, sli_points=250, split='none',
-                 split_ratio=FIT_DEFAULT, random_state=SEED,
-                 data_path=DEFAULT_PATH, test_mode='interpolation', factor=1):
-        """Init.
-
-        Args:
-            n_samples(int, optional): Number of points to sample from the manifold.
-            split(str, optional): Name of split. See BaseDataset.
-            split_ratio(float, optional): Ratio of train split. See BaseDataset.
-            random_state(int, optional): Random seed. See BaseDataset.
-            sli_points(int, optional): Remove sli_points closest to origin on the "length" dimension and use them as
-            the test split.
-            data_path(str, optional): Unused. Only to share same signature with other datasets.
-            test_mode(str, optional): 'slice' to remove a thin 'ribbon' of sli_points points removed from the middle of
-            the manifold to test out of distribution generalization. 'interpolation' to remove a square in the
-            plane of the roll and use it for testing.
-            factor(int, optional): Stretch factor for the roll.
-        """
-        self.test_mode = test_mode
-
-        super().__init__(n_samples, split, split_ratio=split_ratio,
-                         random_state=random_state, sli_points=sli_points,
-                         factor=factor)
 
     def get_split(self, x, y, split, split_ratio, random_state, labels=None):
         """Split dataset.
@@ -258,12 +245,14 @@ class SwissRoll(FullSwissRoll):
         if split == 'none':
             return torch.from_numpy(x), torch.from_numpy(y)
 
-        if self.test_mode == 'slice':
+        if self.test_mode == 'uniform':
+            return super().get_split(x, y, split, split_ratio, random_state)
+        elif self.test_mode == 'slice':
             test_idx = self.slice_idx
         elif self.test_mode == 'interpolation':
-            test_idx = self.interpolation_test
+            test_idx = self.interpolation_idx
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f'Test mode \'{self.test_mode}\' is not implemented.')
 
         x_train, y_train, x_test, y_test = slice_3D(x, y, test_idx)
 
@@ -271,6 +260,32 @@ class SwissRoll(FullSwissRoll):
             return torch.from_numpy(x_train), torch.from_numpy(y_train)
         else:
             return torch.from_numpy(x_test), torch.from_numpy(y_test)
+
+
+# Convenience wrapper classes to quickly call some variants of the Swiss Roll problem
+class InterpolationSwiss(SwissRoll):
+    def __init__(self, **kwargs):
+        super().__init__(test_mode='interpolation', **kwargs)
+
+
+class SliceSwiss(SwissRoll):
+    def __init__(self, **kwargs):
+        super().__init__(test_mode='slice', **kwargs)
+
+
+class NoisySwissRoll(SwissRoll):
+    def __init__(self, **kwargs):
+        super().__init__(test_mode='uniform', noise=.5, **kwargs)
+
+
+class NoisyInterpolationSwiss(SwissRoll):
+    def __init__(self, **kwargs):
+        super().__init__(test_mode='interpolation', noise=.5, **kwargs)
+
+
+class NoisySliceSwiss(SwissRoll):
+    def __init__(self, **kwargs):
+        super().__init__(test_mode='slice', noise=.5, **kwargs)
 
 
 class Torus(Surface):
