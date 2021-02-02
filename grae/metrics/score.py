@@ -1,6 +1,6 @@
 """Routine to score embeddings."""
 import numpy as np
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import Lasso, LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import pearsonr
 
@@ -115,7 +115,7 @@ def latent_regression(z, y, labels=None):
 
 
 def score_model(dataset_name, model, dataset, mse_only=False):
-    """Compute embeding of dataset with model. Return embedding and some performance metrics.
+    """Compute embedding of dataset with model. Return embedding and some performance metrics.
 
     Args:
         dataset_name(str): Name of dataset.
@@ -147,7 +147,7 @@ def score_model(dataset_name, model, dataset, mse_only=False):
             # Angle-based regression for circular manifolds
             r2 = radial_regression(z, *y.T)
         elif dataset_name in ['UMIST', 'ArtificialTree']:
-            # Some datasets has a cluster structure that should be accounted for
+            # Some datasets have a cluster structure that should be accounted for
             labels = y[:, 0]
             target = y[:, 1:]
             r2 = latent_regression(z, target, labels=labels)
@@ -158,5 +158,15 @@ def score_model(dataset_name, model, dataset, mse_only=False):
             r2 = latent_regression(z, y)
 
         metrics.update({'R2': np.mean(r2)})
+
+    # Add classification accuracy for some problems
+    if not mse_only and dataset_name in ['RotatedDigits', 'UMIST', 'ToroidalHelices', 'COIL100', 'ArtificialTree']:
+        _, y = dataset.numpy()
+
+        m = LogisticRegression(max_iter=1000)
+
+        m.fit(z, y)
+
+        metrics.update({'Acc': m.score(z, y)})
 
     return z, metrics
