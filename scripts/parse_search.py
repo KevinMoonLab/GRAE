@@ -1,6 +1,5 @@
 """Build schedule for test experiments based on hyper parameter search
-results.
-
+results. Fetch results directly on Comet servers.
 """
 import os
 import math
@@ -55,7 +54,7 @@ if args.schedule_path is None:
 if args.results_path is None:
     args.results_path = os.path.join(os.getcwd(), 'results', f'{args.comet_tag}_search.csv')
 
-if not os.path.exists(args.results_path):
+if not (os.path.exists(args.results_path) or args.archive):
     # Fetch results from Comet
     comet_api = comet_ml.api.API()
 

@@ -263,12 +263,12 @@ class SwissRoll(Surface):
 
 
 # Convenience wrapper classes to quickly call some variants of the Swiss Roll problem
-class InterpolationSwiss(SwissRoll):
+class InterpolationSwissRoll(SwissRoll):
     def __init__(self, **kwargs):
         super().__init__(test_mode='interpolation', **kwargs)
 
 
-class SliceSwiss(SwissRoll):
+class SliceSwissRoll(SwissRoll):
     def __init__(self, **kwargs):
         super().__init__(test_mode='slice', **kwargs)
 
@@ -278,12 +278,12 @@ class NoisySwissRoll(SwissRoll):
         super().__init__(test_mode='uniform', noise=.5, **kwargs)
 
 
-class NoisyInterpolationSwiss(SwissRoll):
+class NoisyInterpolationSwissRoll(SwissRoll):
     def __init__(self, **kwargs):
         super().__init__(test_mode='interpolation', noise=.5, **kwargs)
 
 
-class NoisySliceSwiss(SwissRoll):
+class NoisySliceSwissRoll(SwissRoll):
     def __init__(self, **kwargs):
         super().__init__(test_mode='slice', noise=.5, **kwargs)
 
