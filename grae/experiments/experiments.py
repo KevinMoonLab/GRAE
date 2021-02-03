@@ -13,7 +13,7 @@ from comet_ml import Experiment
 import grae.data
 import grae.models
 from grae.experiments.utils import save_dict
-from grae.metrics import score_model
+from grae.metrics import EmbeddingProber
 from grae.experiments.hyperparameter_config import FOLD_SEEDS
 
 
@@ -106,20 +106,16 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
         m.view_img_rec(data_train, choice='random', title=f'{model_name}_{dataset_name}_train_rec')
         m.view_img_rec(data_test, choice='best', title=f'{model_name}_{dataset_name}_test_rec_best')
         m.view_img_rec(data_test, choice='worst', title=f'{model_name}_{dataset_name}_test_rec_worst')
-    elif dataset_name in ['SwissRoll', 'ToroidalHelices', 'Mammoth']:
+    elif dataset_name in ['ToroidalHelices', 'Mammoth'] or 'SwissRoll' in dataset_name:
         m.view_surface_rec(data_train, title=f'{model_name}_{dataset_name}_train_rec', dataset_name=dataset_name)
         m.view_surface_rec(data_test, title=f'{model_name}_{dataset_name}_test_rec', dataset_name=dataset_name)
 
     # Score test results first to avoid UMAP bug. See issue #515 of their repo.
-    test_z, test_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_test)
-
-    if model_name == 'UMAP' and dataset_name == 'Embryoid':
-        # Reconstructing full training set in reasonable time is very long with UMAP on Embryoid. Skip it.
-        train_z, train_metrics = m.transform(data_train), dict()
-    else:
-        train_z, train_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_train)
+    prober = EmbeddingProber()
+    prober.fit(model=m, dataset=data_train_full)
 
     with exp.train():
+        train_z, train_metrics = prober.score(data_train)
         _, train_y = data_train.numpy()
 
         # Log train metrics
@@ -127,6 +123,7 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
         exp.log_metrics(train_metrics)
 
     with exp.test():
+        test_z, test_metrics = prober.score(data_test)
         _, test_y = data_test.numpy()
 
         # Log train metrics
@@ -195,17 +192,17 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag='
         # Log plot
         m.plot(data_train, data_val, title=f'{model_name} : {dataset_name}')
 
-        # Score val results first to avoid UMAP bug. See issue #515 of their repo.
-        val_z, val_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_val, mse_only=True)
+        # Probe embedding
+        prober = EmbeddingProber()
+        prober.fit(model=m, dataset=data_train, mse_only=True)
+        train_z, train_metrics = prober.score(data_train, is_train=True)
 
-        if model_name != 'UMAP' or dataset_name != 'Embryoid':
-            # Do not benchmark train set for UMAP to save time
-            train_z, train_metrics = score_model(dataset_name=dataset_name, model=m, dataset=data_train, mse_only=True)
-
-            # Log train metrics
-            exp.log_metrics(train_metrics)
+        # Log train metrics
+        exp.log_metrics(train_metrics)
 
     with exp.validate():
+        val_z, val_metrics = prober.score(data_val)
+
         # Log train metrics
         exp.log_metrics(val_metrics)
 

@@ -1,1 +1,1 @@
-from grae.metrics.score import score_model
+from grae.metrics.score import EmbeddingProber

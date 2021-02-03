@@ -1,172 +1,177 @@
 """Routine to score embeddings."""
 import numpy as np
-from sklearn.linear_model import Lasso, LogisticRegression
+from sklearn.linear_model import LogisticRegression, SGDRegressor
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 from scipy.stats import pearsonr
 
-# Metrics to compute
-METRICS = ['fit_time', 'R2', 'reconstruction']
 
+class PolarConverter:
+    """Pipeline object to convert x to polar coordinates. Only returns the angle."""
 
-def radial_regression(cartesian_emb, labels, angles):
-    """Regression of the angles of an embedding with a "polar" ground truth and return R^2.
+    def fit(self, x, y):
+        """Fit method.
 
-    Used for datasets such as Teapot and Rotated Digits.
-    First center embeddings and use one point to align them, otherwise a rotation may
-    break the linear relationship. Compute the R^2 score based on the embedding angles.
-    If multiple classes (rings) are present (e.g. Rotated Digits), will return the R^2 average over
-    all rings.
+        Align one angle with the ground truth (by rotating the embedding) to prevent arbitrary rotations
+        from affecting downstream regression tasks.
 
-    Args:
-        cartesian_emb(ndarray): Embedding.
-        labels(ndarray): Ground truth classes.
-        angles(ndarray): Ground truth angles.
+        Args:
+            x(ndarray): Input.
+            y(ndarray): Ground truth angles.
+        """
+        x = x.copy()
 
-    Returns:
-        float: R^2 (or average thereof) of the regressor on the embedding angles.
-    """
+        self.mean = x.mean(axis=0)
+        self.y = y
 
-    if cartesian_emb.shape[1] != 2:
-        raise ValueError('Radial regression requires conversion to polar coordinates. Will only work'
-                         'with 2 dimensions.')
-
-    c = np.unique(labels)
-    r2 = list()
-
-    for i in c:
-        mask = labels == i
-        emb = cartesian_emb[mask]
-        centered_emb = emb - emb.mean(axis=0)
-
-        # Ground truth in class
-        class_angles = angles[mask]
+        # Center embedding
+        x -= self.mean
 
         # Polar coordinates of the embedding (we're only interested in the angle here)
-        phi = np.arctan2(*centered_emb.T) + np.pi
+        phi = np.arctan2(*x.T) + np.pi
 
-        # Align smallest angle to prevent arbitrary rotation from affecting the regression
-        arg_min = min(class_angles.argmin(), phi.argmin())
-        phi -= phi[arg_min]
+        # Align smallest angle to get a rough alignment and prevent arbitrary rotations from affecting
+        # downstream regression tasks
+        arg_min = y.argmin()
+        min_offset = phi[arg_min] - y[arg_min]
+        phi -= min_offset
         phi %= 2 * np.pi
-        class_angles -= class_angles[arg_min]
-        class_angles %= 2 * np.pi
 
-        corr, _ = pearsonr(phi, class_angles)
+        # Further adjust offset to maximize correlation with labels
+        search_range = min(x.shape[0] - x.shape[0] % 2, 10)
+        sort_idx = phi.argsort()
+        corr = list()
 
-        if corr < 0:
-            # If the correlation is inversed (negative slope) the minimum angle should be mapped to
-            # 2pi otherwise it'll be an outlier in the regression
-            phi[arg_min] = 2 * np.pi
+        for i in range(2 * search_range):
+            new_phi = phi - phi[sort_idx[i - search_range]]
+            new_phi %= 2 * np.pi
+            candidate_corr, _ = pearsonr(new_phi, self.y)
+            corr.append(candidate_corr)
 
-        phi = phi.reshape((-1, 1))
+        corr = np.abs(np.array(corr))
+        self.phi_offset = min_offset + phi[sort_idx[corr.argmax() - search_range]]
 
-        # Compute regression and R^2 score
-        m = Lasso(alpha=.002, fit_intercept=True)
-        m.fit(phi, class_angles)
-        r2.append(m.score(phi, class_angles))
+        return self
 
-    return np.mean(r2)
+    def transform(self, x):
+        """Fit method.
+        Args:
+            x(ndarray): Input.
+        """
+        x = x.copy()
+        x -= self.mean
+        phi = np.arctan2(*x.T) + np.pi
+        phi -= self.phi_offset
+        phi %= 2 * np.pi
+
+        return phi.reshape((-1, 1))
 
 
-def latent_regression(z, y, labels=None):
-    """Regression of latent ground truth factors (y) using embedding z.
-
-    Compute a linear regression to predict a ground truth factor based on the embedding coordinates and return the R^2
-    score. If more than one ground truth variable is present, fit multiple regressors and return the R^2.
-
-    If sample classes are provided in the labels argument, repeat the above procedure independantly for all classes and
-    return the average score.
-
-    Args:
-        z(ndarray): Embedding.
-        y(ndarray): Ground truth variables, as columns.
-        labels(ndarray): Class indices, if embedding needs to be partionned.
-
-    Returns:
-        float : R^2 (or average thereof over all classes and ground truth variables) of a linear regressor over the
-        embedding coordinates.
+class EmbeddingProber:
+    """Class to benchmark MSE, the coefficient of determination (R2) for ground truth continuous variables and
+    classification accuracy of dataset has labels.
     """
-    r2 = list()
+    def fit(self, model, dataset, mse_only=False):
+        """Fit regressors to predict latent variables and/or labels if available.
 
-    # If no class is provided, use a dummy constant class for all samples
-    if labels is None:
-        labels = np.ones(z.shape[0])
+        If a dataset has multiple latent variables, one regressor is used per variable. Moreover, if the dataset has
+        latent variables in addition to class labels, the data is divided according to labels and one regressor
+        is trained per combination of label/latent variable.
 
-    c = np.unique(labels)
+        Args:
+            model(BaseModel): Fitted Model.
+            dataset(BaseDataset): Dataset to benchmark.
+            mse_only(optional, bool): Compute only MSE. Useful for lightweight computations during hyperparameter search.
 
-    for i in c:
-        mask = labels == i
-        z_c = z[mask]
-        y_c = y[mask]
+        """
+        self.linear_regressors = []
+        self.linear_classifiers = []
+        self.mse_only = mse_only
 
-        # Rescale data
-        z_scaler = StandardScaler(with_std=True)
-        y_scaler = StandardScaler(with_std=True)
+        # Get data embedding and train MSE metrics
+        self.model = model
+        self.z_train, self.rec_train_metrics = model.score(dataset)
+        n_components = self.z_train.shape[1]
 
-        z_c = z_scaler.fit_transform(z_c)
-        y_c = y_scaler.fit_transform(y_c)
+        # Fit regressions (one per combination of class and latent variable)
+        if dataset.latents is not None and not mse_only:
+            # Use dummy labels for one class if no class labels are provided
+            labels = dataset.labels[:, 0] if dataset.labels is not None else np.zeros(len(dataset))
 
-        for latent in y_c.T:
-            m = Lasso(alpha=.002, fit_intercept=False)
-            m.fit(z_c, latent)
-            r2.append(m.score(z_c, latent))
+            c = np.unique(labels)
 
-    return np.mean(r2)
+            for i in c:
+                mask = labels == i
+                z_c = self.z_train[mask]
+                y_c = dataset.latents[mask]
+                self.linear_regressors.append([])
 
+                for j, latent in enumerate(y_c.T):
+                    scaler = PolarConverter() if (j in dataset.is_radial and n_components == 2) else StandardScaler()
+                    pipeline = Pipeline(steps=[('scaler', scaler),
+                                               ('regression', SGDRegressor())])
+                    pipeline.fit(z_c, latent)
+                    self.linear_regressors[int(i)].append(pipeline)
 
-def score_model(dataset_name, model, dataset, mse_only=False):
-    """Compute embedding of dataset with model. Return embedding and some performance metrics.
+        # Fit one linear classifier per class of labels
+        if dataset.labels is not None and not mse_only:
+            for i, classes in enumerate(dataset.labels.T):
+                pipeline = Pipeline(steps=[('scaler', StandardScaler()), ('regression',
+                                                                          LogisticRegression(max_iter=1000))])
+                pipeline.fit(self.z_train, classes)
+                self.linear_classifiers.append(pipeline)
 
-    Args:
-        dataset_name(str): Name of dataset.
-        model(BaseModel): Fitted model.
-        dataset(BaseDataset): Dataset to embed and score.
-        mse_only(bool): Set to False to compute only MSE. Useful for lightweight computations during
-        hyperparameter search.
+    def score(self, dataset, is_train=False):
+        """Score dataset.
 
-    Returns:
-        (tuple) tuple containing:
-            z(ndarray): Data embedding.
-            metrics(dict[float]): Dict of metrics.
+        Args:
+            dataset(BaseDataset): Dataset to score.
+            is_train(optional, bool): If True, will reuse embeddings and MSE metrics computed during fit.
 
-    """
-    metrics = dict()
+        Returns:
+            (tuple) tuple containing:
+                z(ndarray): Data embedding.
+                metrics(dict[float]): Dict of metrics.
 
-    # Compute embedding and MSE
-    z, rec_metrics = model.score(dataset)
-    metrics.update(rec_metrics)
+        """
+        metrics = dict()
 
-    n_components = z.shape[1]
-
-    # Fit linear regressions on a given split
-    if n_components == 2 and not mse_only:
-        # Only fit a regression of latent factors for 2D embeddings
-        y = dataset.get_latents()
-
-        if dataset_name in ['Teapot', 'RotatedDigits', 'ToroidalHelices', 'COIL100']:
-            # Angle-based regression for circular manifolds
-            r2 = radial_regression(z, *y.T)
-        elif dataset_name in ['UMIST', 'ArtificialTree']:
-            # Some datasets have a cluster structure that should be accounted for
-            labels = y[:, 0]
-            target = y[:, 1:]
-            r2 = latent_regression(z, target, labels=labels)
-        elif dataset_name in ['Mammoth']:
-            # Mammoth dataset does not have a continuous target variable
-            r2 = 0
+        if is_train:
+            z, rec_metrics = self.z_train, self.rec_train_metrics
         else:
-            r2 = latent_regression(z, y)
+            z, rec_metrics = self.model.score(dataset)
 
-        metrics.update({'R2': np.mean(r2)})
+        metrics.update(rec_metrics)
 
-    # Add classification accuracy for some problems
-    if not mse_only and dataset_name in ['RotatedDigits', 'UMIST', 'ToroidalHelices', 'COIL100', 'ArtificialTree']:
-        _, y = dataset.numpy()
+        # Fit regressions (one per combination of class and latent variable)
+        if dataset.latents is not None and not self.mse_only:
+            r2 = list()
 
-        m = LogisticRegression(max_iter=1000)
+            # Use dummy labels for one class if no class labels are provided
+            labels = dataset.labels[:, 0] if dataset.labels is not None else np.zeros(len(dataset))
 
-        m.fit(z, y)
+            c = np.unique(labels)
 
-        metrics.update({'Acc': m.score(z, y)})
+            for i in c:
+                mask = labels == i
+                z_c = z[mask]
+                y_c = dataset.latents[mask]
 
-    return z, metrics
+                for j, latent in enumerate(y_c.T):
+                    r2.append(self.linear_regressors[int(i)][j].score(z_c, latent))
+
+            metrics.update({'R2': np.mean(r2)})
+        else:
+            metrics.update({'R2': -1})
+
+        # Fit one linear classifier per class of labels
+        if dataset.labels is not None and not self.mse_only:
+            acc = list()
+            for i, classes in enumerate(dataset.labels.T):
+                acc.append(self.linear_classifiers[int(i)].score(z, classes))
+
+            metrics.update({'Acc': np.mean(acc)})
+        else:
+            metrics.update({'Acc': -1})
+
+        return z, metrics
