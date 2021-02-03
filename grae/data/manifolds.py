@@ -142,6 +142,8 @@ class SCurve(Surface):
 
         super().__init__(x, y, split, split_ratio, random_state)
 
+        self.latents = self.targets.numpy()
+
 
 class SwissRoll(Surface):
     """Standard Swiss Roll dataset.
@@ -222,6 +224,10 @@ class SwissRoll(Surface):
         # Latent variables are the coordinate on the "length" dimension and the color given by Sklearn
         # Both parametrize the intrinsic plane
         self.latents = self.targets.numpy()
+
+        if self.test_mode == 'slice':
+            # If test_mode is slice, only keep the 'long' side of the ribbon as the target latent
+            self.latents = self.latents[:, 0].reshape((-1, 1))
 
         # Only keep one latent as target for compatibility with other datasets
         self.targets = self.targets[:, 0]
@@ -342,7 +348,8 @@ class Torus(Surface):
         super().__init__(x, latents, split, split_ratio, random_state)
 
         # Use main torus angle as latent variable
-        self.latents = self.targets[:, 1].numpy()
+        self.latents = self.targets[:, 1].numpy().copy().reshape((-1, 1))
+        self.is_radial = [0]
 
         # Only keep one latent as target for compatibility with other datasets
         # Used as main coloring variable
@@ -386,15 +393,18 @@ class ToroidalHelices(Surface):
         super().__init__(np.vstack(x_list), np.vstack(y_list),
                          split, split_ratio, random_state)
 
-        # Use torus id and main angle as latents
-        self.latents = self.targets.numpy()
 
         if n_helix > 1:
             # Use helix id if multiple helices
+            self.labels = self.targets[:, 0].numpy().copy().reshape((-1, 1))
+            self.latents = self.targets[:, 1].numpy().copy().reshape((-1, 1))
             self.targets = self.targets[:, 0]
         else:
             # If only one helix, use angle as target variable
             self.targets = self.targets[:, 1]
+            self.latents = self.targets.numpy().copy().reshape((-1, 1))
+
+        self.is_radial = [0]
 
 
 class ArtificialTree(BaseDataset):
@@ -425,7 +435,8 @@ class ArtificialTree(BaseDataset):
 
         super().__init__(tree, np.vstack((branches, point_id)).T,
                          split, split_ratio, random_state)
-        self.latents = self.targets.numpy()
+        self.latents = self.targets.numpy()[:, 1].copy().reshape((-1, 1))
+        self.labels = self.targets.numpy()[:, 0].copy().reshape((-1, 1))
         self.targets = self.targets[:, 0]
 
 

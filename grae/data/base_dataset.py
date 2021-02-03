@@ -15,6 +15,7 @@ SEED = 42  # Default seed for splitting
 
 DEFAULT_PATH = os.path.join(os.getcwd(), 'data')
 
+
 class FromNumpyDataset(Dataset):
     """Torch Dataset Wrapper for x ndarray with no target."""
 
@@ -53,6 +54,7 @@ class FromNumpyDataset(Dataset):
         else:
             return data[idx]
 
+
 class BaseDataset(Dataset):
     """Template class for all datasets in the project.
 
@@ -80,8 +82,9 @@ class BaseDataset(Dataset):
 
         self.data = x.float()
         self.targets = y.float()  # One target variable. Used mainly for coloring.
-        self.latents = None  # Arbitrary number of ground truth variables. Used for computing metrics.
-
+        self.latents = None  # Arbitrary number of continuous ground truth variables. Used for computing metrics.
+        self.labels = None  # Arbitrary number of label ground truth variables. Used for computing metrics.
+        self.is_radial = []  # Indices of latent variable requiring polar conversion when probing (e.g. Teapot, RotatedDigits)
 
     def __getitem__(self, index):
         return self.data[index], self.targets[index], index
@@ -163,13 +166,12 @@ class BaseDataset(Dataset):
         np.random.seed(random_state)
         sample_mask = np.random.choice(len(self), n, replace=False)
 
-        if self.latents is not None:
-            latents = self.latents[sample_mask]
-        else:
-            latents = None
-        return NoSplitBaseDataset(self.data[sample_mask], self.targets[sample_mask], latents)
+        next_latents = self.latents[sample_mask] if self.latents is not None else None
+        next_labels = self.labels[sample_mask] if self.labels is not None else None
 
-    def validation_split(self, ratio=.15/FIT_DEFAULT, random_state=42):
+        return NoSplitBaseDataset(self.data[sample_mask], self.targets[sample_mask], next_latents, next_labels)
+
+    def validation_split(self, ratio=.15 / FIT_DEFAULT, random_state=42):
         """Randomly subsample validation split in self.
 
         Return both train split and validation split as two different BaseDataset objects.
@@ -191,13 +193,15 @@ class BaseDataset(Dataset):
         val_mask = np.full(len(self), False, dtype=bool)
         val_mask[sample_mask] = True
         train_mask = np.logical_not(val_mask)
+        next_latents_train = self.latents[train_mask] if self.latents is not None else None
+        next_latents_val = self.latents[val_mask] if self.latents is not None else None
+        next_labels_train = self.labels[train_mask] if self.labels is not None else None
+        next_labels_val = self.labels[val_mask] if self.labels is not None else None
 
-        if self.latents is not None:
-            x_train = NoSplitBaseDataset(self.data[train_mask], self.targets[train_mask], self.latents[train_mask])
-            x_val = NoSplitBaseDataset(self.data[val_mask], self.targets[val_mask], self.latents[val_mask])
-        else:
-            x_train = NoSplitBaseDataset(self.data[train_mask], self.targets[train_mask], None)
-            x_val = NoSplitBaseDataset(self.data[val_mask], self.targets[val_mask], None)
+        x_train = NoSplitBaseDataset(self.data[train_mask], self.targets[train_mask],
+                                     next_latents_train, next_labels_train)
+        x_val = NoSplitBaseDataset(self.data[val_mask], self.targets[val_mask],
+                                   next_latents_val, next_labels_val)
 
         return x_train, x_val
 
@@ -205,14 +209,16 @@ class BaseDataset(Dataset):
 class NoSplitBaseDataset(BaseDataset):
     """BaseDataset class when splitting is not required and x and y are already torch tensors."""
 
-    def __init__(self, x, y, latents):
+    def __init__(self, x, y, latents, labels):
         """Init.
 
         Args:
             x(ndarray): Input variables.
             y(ndarray): Target variable. Used for coloring.
-            latents(ndarray): Other target variable. Used for metrics.
+            latents(ndarray): Other continuous target variable. Used for metrics.
+            labels(ndarray): Other label target variable. Used for metrics.
         """
         self.data = x.float()
         self.targets = y.float()
         self.latents = latents
+        self.labels = labels

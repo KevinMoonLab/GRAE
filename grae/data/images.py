@@ -155,8 +155,9 @@ class UMIST(BaseDataset):
         # Pass id to the labels argument to make sure the subject proportions are the same across both splits
         super().__init__(x, targets, split, split_ratio, random_state, labels=targets[:, 0].astype(int).reshape(-1))
 
-        # Store both subject ids and angles as latents
-        self.latents = np.copy(self.targets)
+        # Store angles as latents and subject id as labels
+        self.latents = np.copy(self.targets[:, 1]).reshape((-1, 1))
+        self.labels = np.copy(self.targets[:, 0]).reshape((-1, 1))
 
         # Keep only subject ids as targets
         self.targets = self.targets[:, 0]
@@ -207,10 +208,9 @@ class Teapot(BaseDataset):
 
         self.y = y
 
-        # Set first latent to a single class (there's only one teapot) for compatibility with other datasets with
-        # circular structure (see Rotated Digits)
-        # Second latent variable is the rotation angle
-        self.latents = np.vstack((np.ones(len(self)), self.targets.numpy().flatten() / (360 / (2 * math.pi)))).T
+        # Only latent variable is the rotation angle. Convert to radians
+        self.latents = (self.targets.numpy().flatten() / (360 / (2 * math.pi))).reshape((-1, 1))
+        self.is_radial = [0]
 
         # Reshape dataset in image format
         if ALLOW_CONV:
@@ -239,7 +239,7 @@ class Tracking(BaseDataset):
     """Object Tracking dataset.
 
     Custom dataset where a 16x16 RGB sprite is moved against a 64x64 RGB background to create a dataset with two latent
-    variables, that is, the horizontal and vertical coordinates of the character. Gaussian noise is added to the
+    variables, that is, the horizontal and vertical coordinates of the character. Gaussian noise can be added to the
     background.
 
     Contains 2304 images.
@@ -327,10 +327,7 @@ class Tracking(BaseDataset):
             self.data = self.data.permute(0, 3, 1, 2)
 
         # Save character coordinates as latents
-        y_1 = self.targets[:, 0].numpy()
-        y_2 = self.targets[:, 1].numpy()
-
-        self.latents = np.vstack((y_1, y_2)).T
+        self.latents = np.copy(self.targets.numpy())
 
         # Keep only one latent in the targets attribute for compatibility with
         # other datasets
@@ -409,11 +406,12 @@ class Rotated(BaseDataset):
         super().__init__(inputs, targets, split, split_ratio, random_state)
 
         # Split back angles and targets
-        angles = self.targets[:, 1]
-        self.targets = self.targets[:, 0]
+        self.latents = 2 * np.pi * self.targets[:, 1].numpy().copy().reshape((-1, 1)) /360
+        self.is_radial = [0]
+        self.labels = self.targets[:, 0].numpy().copy().reshape((-1, 1))
 
-        # Class as first latent variable and angles (in radians) as second latent variable.
-        self.latents = np.vstack((self.targets.numpy().flatten(), angles.numpy().flatten() / (360/(2 * math.pi)))).T
+        # Keep only one latent in targets for compatibility with other datasets
+        self.targets = self.targets[:, 0]
 
 
 class RotatedDigits(Rotated):
@@ -465,11 +463,15 @@ class COIL100(BaseDataset):
 
         super().__init__(x, y, split, split_ratio, random_state,
                          labels=y[:, 0].astype(int).reshape(-1))
+        # Adjust labels
+        self.targets[:, 0] -= 1
 
-        self.latents = np.copy(self.targets)
+        # Split back angles and targets
+        self.latents = 2 * np.pi * self.targets[:, 1].numpy().copy().reshape((-1, 1)) / 360
+        self.is_radial = [0]
+        self.labels = self.targets[:, 0].numpy().copy().reshape((-1, 1))
 
-        # Keep only one latent in the targets attribute for compatibility with
-        # other datasets
+        # Keep only one latent in targets for compatibility with other datasets
         self.targets = self.targets[:, 0]
 
         # Reshape dataset in image format
