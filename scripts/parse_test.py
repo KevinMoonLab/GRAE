@@ -40,7 +40,7 @@ if args.comet_tag is None:
 if args.results_path is None:
     args.results_path = os.path.join(os.getcwd(), 'results', f'{args.comet_tag}_test.csv')
 
-if not (os.path.exists(args.results_path) or args.archive):
+if not os.path.exists(args.results_path) or args.archive:
     # Fetch results from Comet
     comet_api = comet_ml.api.API()
 
@@ -53,6 +53,7 @@ if not (os.path.exists(args.results_path) or args.archive):
         model_name=list(),
         test_MSE=list(),
         test_R2=list(),
+        test_Acc=list(),
         success=list(),
     )
 
@@ -61,7 +62,7 @@ if not (os.path.exists(args.results_path) or args.archive):
         for n in ('dataset_name', 'model_name'):
             results_dict[n].append(exp.get_parameters_summary(parameter=n)['valueCurrent'])
         # Metrics
-        for n in ['test_MSE', 'test_R2']:
+        for n in ['test_MSE', 'test_R2', 'test_Acc']:
             results_dict[n].append(float(exp.get_metrics(metric=n)[0]['metricValue']))
         # Others
         for n in ['success']:
@@ -85,7 +86,7 @@ df_agg = df.groupby(['dataset_name', 'model_name']).mean().sort_values(['dataset
 
 if args.print:
 
-    for metric in ['test_R2', 'test_MSE']:
+    for metric in ['test_R2', 'test_MSE', 'test_Acc']:
         print(f'Results ordered by {metric}:\n')
         print(df_agg.sort_values(['dataset_name', metric]).to_string())
         print('\n\n')
