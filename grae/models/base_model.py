@@ -106,7 +106,7 @@ class BaseModel:
         plt.figure(figsize=(3.5, 3.5))
 
         if title is not None:
-            plt.title(title, fontsize=20)
+            plt.title(title, fontsize=12)
             plt.xticks([])
             plt.yticks([])
 
