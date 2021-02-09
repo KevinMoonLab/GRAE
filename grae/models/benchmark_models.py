@@ -32,10 +32,10 @@ class UMAP(BaseModel):
 
         """
         x, _ = x.numpy()
-        x = x.copy()  # To prevent overwriting original data. Related to issue #515 of the UMAP repo?
 
         steps = [self.umap_estimator]
         if x.shape[1] > 100 and x.shape[0] > 1000:
+            print('More than 100 dimensions and 1000 samples. Adding PCA step to UMAP pipeline.')
             steps = [PCA(n_components=100)] + steps
 
         self.estimator = make_pipeline(*steps)
@@ -65,8 +65,14 @@ class UMAP(BaseModel):
         """
         x, _ = x.numpy()
 
-        estimator_copy = deepcopy(self.estimator)  # Quick fix for issue #515 of the UMAP repo
-        return estimator_copy.transform(x)
+        # To prevent overwriting original data. Related to issue #515 of the UMAP repo?
+        # Preserving _raw_data ensures the fitted estimator can transform multiple times different datasets (i.e. train
+        # test) from the same state. The attribute is otherwise altered and future calls to transform will lead
+        # to poor results. Does not affect test metrics.
+        raw_data_bk = self.estimator[-1]._raw_data.copy()
+        results = self.estimator.transform(x)
+        self.estimator[-1]._raw_data = raw_data_bk
+        return results
 
     def reconstruct(self, x):
         """Transform and inverse x.
@@ -91,8 +97,12 @@ class UMAP(BaseModel):
             ndarray: Inverse (reconstruction) of x.
 
         """
-        estimator_copy = deepcopy(self.estimator)  # Quick fix for issue #515 of the UMAP repo
-        return estimator_copy.inverse_transform(x)
+        # To prevent overwriting original data. Related to issue #515 of the UMAP repo?
+        # See comments under the transform method
+        raw_data_bk = self.estimator[-1]._raw_data.copy()
+        results = self.estimator.inverse_transform(x)
+        self.estimator[-1]._raw_data = raw_data_bk
+        return results
 
 
 class GRAEUMAP(GRAEBase):
