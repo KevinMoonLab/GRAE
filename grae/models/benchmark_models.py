@@ -202,7 +202,14 @@ class EAERMargin(AE):
 
         """
         x_np, _ = x.numpy()
-        nbrs = NearestNeighbors(n_neighbors=self.n_neighbors, algorithm='ball_tree').fit(x_np)
+
+        # Determine neighborhood parameters
+        x_np, _ = x.numpy()
+        if x_np.shape[0] > 100:
+            print('Computing PCA before knn search...')
+            x_np = PCA(n_components=100).fit_transform(x_np)
+
+        nbrs = NearestNeighbors(n_neighbors=self.n_neighbors, algorithm='auto').fit(x_np)
 
         self.knn_graph = nbrs.kneighbors_graph()
 
