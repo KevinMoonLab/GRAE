@@ -182,7 +182,6 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag='
 
     # Model
     m = getattr(grae.models, model_name)(random_state=FOLD_SEEDS[k], **model_params)
-    # m.comet_exp = exp
     m.write_path = write_path
     m.data_val = data_val
 
@@ -190,6 +189,7 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag='
         m.fit(data_train)
 
         # Log plot
+        m.comet_exp = exp
         m.plot(data_train, data_val, title=f'{model_name} : {dataset_name}')
 
         # Probe embedding
