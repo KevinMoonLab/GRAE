@@ -9,6 +9,9 @@ from sklearn.metrics import mean_squared_error
 
 class BaseModel:
     """All models should subclass BaseModel."""
+    def __init__(self):
+        """Init."""
+        self.comet_exp = None
 
     def fit(self, x):
         """Fit model to data.

@@ -1,19 +1,28 @@
 """Other models to compare GRAE."""
+from copy import deepcopy
+
 import numpy as np
 import scipy
 import torch
 import umap
 from sklearn.neighbors import NearestNeighbors
+from sklearn.decomposition import PCA
+from sklearn.pipeline import make_pipeline
 from pydiffmap import diffusion_map as dm
 
-from grae.models.grae_models import AE, GRAEBase
+from grae.models.grae_models import AE, GRAEBase, SEED
 from grae.models.base_model import BaseModel
 from grae.models.external_tools.topological_loss import TopoAELoss, compute_distance_matrix
 from grae.data.base_dataset import DEVICE
 
 
-class UMAP(umap.UMAP, BaseModel):
+class UMAP(BaseModel):
     """Wrapper for UMAP to work with torch datasets."""
+    def __init__(self, random_state=SEED, **kwargs):
+        super().__init__()
+        self.umap_estimator = umap.UMAP(random_state=random_state, **kwargs)
+        self.estimator = None
+        self.data_shape = None
 
     def fit(self, x):
         """Fit model to data.
@@ -23,7 +32,14 @@ class UMAP(umap.UMAP, BaseModel):
 
         """
         x, _ = x.numpy()
-        super().fit(x)
+        x = x.copy()  # To prevent overwriting original data. Related to issue #515 of the UMAP repo?
+
+        steps = [self.umap_estimator]
+        if x.shape[1] > 100 and x.shape[0] > 1000:
+            steps = [PCA(n_components=100)] + steps
+
+        self.estimator = make_pipeline(*steps)
+        self.estimator.fit(x)
 
     def fit_transform(self, x):
         """Fit model and transform data.
@@ -35,9 +51,8 @@ class UMAP(umap.UMAP, BaseModel):
             ndarray: Embedding of x.
 
         """
-        x, _ = x.numpy()
-        super().fit(x)
-        return super().transform(x)
+        self.fit(x)
+        return self.transform(x)
 
     def transform(self, x):
         """Transform new data to the low dimensional space.
@@ -49,7 +64,9 @@ class UMAP(umap.UMAP, BaseModel):
 
         """
         x, _ = x.numpy()
-        return super().transform(x)
+
+        estimator_copy = deepcopy(self.estimator)  # Quick fix for issue #515 of the UMAP repo
+        return estimator_copy.transform(x)
 
     def reconstruct(self, x):
         """Transform and inverse x.
@@ -61,7 +78,21 @@ class UMAP(umap.UMAP, BaseModel):
             ndarray: Reconstructions of x.
 
         """
-        return self.inverse_transform(self.transform(x))
+        data_len = len(x)
+        data_shape = x[0][0].shape
+        return self.estimator.inverse_transform(self.transform(x)).reshape((data_len, *data_shape))
+
+    def inverse_transform(self, x):
+        """Take coordinates in the embedding space and invert them to the data space.
+
+        Args:
+            x(ndarray): Points in the embedded space with samples on the first axis.
+        Returns:
+            ndarray: Inverse (reconstruction) of x.
+
+        """
+        estimator_copy = deepcopy(self.estimator)  # Quick fix for issue #515 of the UMAP repo
+        return estimator_copy.inverse_transform(x)
 
 
 class GRAEUMAP(GRAEBase):
@@ -84,6 +115,7 @@ class GRAEUMAP(GRAEBase):
                          relax=relax,
                          **kwargs)
 
+
 class GRAEUMAP_R(GRAEBase):
     """Relaxed GRAE with UMAP regularization."""
 
@@ -103,6 +135,7 @@ class GRAEUMAP_R(GRAEBase):
                          embedder_params=dict(n_neighbors=n_neighbors, min_dist=min_dist),
                          relax=True,
                          **kwargs)
+
 
 class TopoAE(AE):
     """Topological Autoencoder.
