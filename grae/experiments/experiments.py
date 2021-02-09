@@ -110,12 +110,12 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
         m.view_surface_rec(data_train, title=f'{model_name}_{dataset_name}_train_rec', dataset_name=dataset_name)
         m.view_surface_rec(data_test, title=f'{model_name}_{dataset_name}_test_rec', dataset_name=dataset_name)
 
-    # Score test results first to avoid UMAP bug. See issue #515 of their repo.
+    # Score models
     prober = EmbeddingProber()
     prober.fit(model=m, dataset=data_train_full)
 
     with exp.train():
-        train_z, train_metrics = prober.score(data_train)
+        train_z, train_metrics = prober.score(data_train_full)
         _, train_y = data_train.numpy()
 
         # Log train metrics
@@ -151,7 +151,7 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
 def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag=''):
     """Fit model and compute metrics on train and validation set. Intended for hyperparameter search.
 
-    Only logs metric and scatter plot of final embedding.
+    Only logs final metrics and scatter plot of final embedding.
 
     Args:
         exp_params(dict): Parameter dict. Should at least have keys model_name, dataset_name & random_state. Other
@@ -182,7 +182,7 @@ def fit_validate(exp_params, k, data_path, write_path, others=None, custom_tag='
 
     # Model
     m = getattr(grae.models, model_name)(random_state=FOLD_SEEDS[k], **model_params)
-    m.comet_exp = exp
+    # m.comet_exp = exp
     m.write_path = write_path
     m.data_val = data_val
 
