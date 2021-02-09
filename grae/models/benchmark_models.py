@@ -205,7 +205,7 @@ class EAERMargin(AE):
 
         # Determine neighborhood parameters
         x_np, _ = x.numpy()
-        if x_np.shape[0] > 100:
+        if x_np.shape[1] > 100:
             print('Computing PCA before knn search...')
             x_np = PCA(n_components=100).fit_transform(x_np)
 
