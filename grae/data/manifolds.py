@@ -286,7 +286,7 @@ class NoisySwissRoll(SwissRoll):
 
 class NoisyInterpolationSwissRoll(SwissRoll):
     def __init__(self, **kwargs):
-        super().__init__(test_mode='interpolation', noise=.5, **kwargs)
+        super().__init__(test_mode='interpolation', noise=.2, **kwargs)
 
 
 class NoisySliceSwissRoll(SwissRoll):
