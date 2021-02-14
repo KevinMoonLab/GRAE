@@ -72,18 +72,22 @@ if not os.path.exists(args.results_path) or args.archive:
     )
 
     for exp in experiments:
-        # Parameters
-        for n in ('dataset_name', 'model_name'):
-            results_dict[n].append(exp.get_parameters_summary(parameter=n)['valueCurrent'])
-        # Metrics
-        for n in ['validate_MSE']:
-            results_dict[n].append(float(exp.get_metrics(metric=n)[0]['metricValue']))
-        # Metadata
-        for n in ['durationMillis']:
-            results_dict[n].append(exp.get_metadata()[n])
-        # Others
-        for n in ('param_no', 'success'):
-            results_dict[n].append(int(exp.get_others_summary(other=n)[0]))
+        # Check if experiment was successful. Else continue.
+        success_flag = exp.get_others_summary(other='success')
+
+        if len(success_flag) > 0:
+            # Parameters
+            for n in ('dataset_name', 'model_name'):
+                results_dict[n].append(exp.get_parameters_summary(parameter=n)['valueCurrent'])
+            # Metrics
+            for n in ['validate_MSE']:
+                results_dict[n].append(float(exp.get_metrics(metric=n)[0]['metricValue']))
+            # Metadata
+            for n in ['durationMillis']:
+                results_dict[n].append(exp.get_metadata()[n])
+            # Others
+            for n in ('param_no', 'success'):
+                results_dict[n].append(int(exp.get_others_summary(other=n)[0]))
 
         # Archive if requested
         if args.archive:

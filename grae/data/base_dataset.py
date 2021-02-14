@@ -83,8 +83,12 @@ class BaseDataset(Dataset):
         self.data = x.float()
         self.targets = y.float()  # One target variable. Used mainly for coloring.
         self.latents = None  # Arbitrary number of continuous ground truth variables. Used for computing metrics.
-        self.labels = None  # Arbitrary number of label ground truth variables. Used for computing metrics.
+
+        # Arbitrary number of label ground truth variables. Used for computing metrics.
+        # Should range from 0 to no_of_classes -1
+        self.labels = None
         self.is_radial = []  # Indices of latent variable requiring polar conversion when probing (e.g. Teapot, RotatedDigits)
+        self.partition = True  # If labels should be used to partition the data before regressing latent factors. See score.EmbeddingProber.
 
     def __getitem__(self, index):
         return self.data[index], self.targets[index], index

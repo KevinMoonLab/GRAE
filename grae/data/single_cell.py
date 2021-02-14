@@ -115,7 +115,10 @@ class Embryoid(BaseDataset):
 
         super().__init__(x, y, split, split_ratio, random_state)
 
+        # Labels are discrete timestamps. Try both classification and regression.
         self.latents = self.targets.numpy().reshape((-1, 1))
+        self.labels = self.latents
+        self.partition = False
 
 
 class IPSC(BaseDataset):
@@ -157,4 +160,8 @@ class IPSC(BaseDataset):
 
         super().__init__(x, y, split, split_ratio, random_state)
 
+        # Labels are discrete timestamps. Try both classification and regression.
+        self.targets -= 1
         self.latents = self.targets.numpy().reshape((-1, 1))
+        self.labels = self.latents.copy()
+        self.partition = False

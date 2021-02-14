@@ -95,10 +95,18 @@ class EmbeddingProber:
 
         # Fit regressions (one per combination of class and latent variable)
         if dataset.latents is not None and not mse_only:
-            # Use dummy labels for one class if no class labels are provided
-            labels = dataset.labels[:, 0] if dataset.labels is not None else np.zeros(len(dataset))
+            # Use dummy labels for one class if no class labels are provided or if partition mode is turned off
+            if dataset.labels is None or not dataset.partition:
+                labels = np.zeros(len(dataset))
+            else:
+                labels = dataset.labels[:, 0]
 
             c = np.unique(labels)
+
+            # Check if classes are correctly indexed
+            for i in range(len(c)):
+                if i != c[i]:
+                    raise ValueError('Class labels should be indexed from 0 to no_of_classes - 1.')
 
             for i in c:
                 mask = labels == i
@@ -147,10 +155,18 @@ class EmbeddingProber:
         if dataset.latents is not None and not self.mse_only:
             r2 = list()
 
-            # Use dummy labels for one class if no class labels are provided
-            labels = dataset.labels[:, 0] if dataset.labels is not None else np.zeros(len(dataset))
+            # Use dummy labels for one class if no class labels are provided or if partition mode is turned off
+            if dataset.labels is None or not dataset.partition:
+                labels = np.zeros(len(dataset))
+            else:
+                labels = dataset.labels[:, 0]
 
             c = np.unique(labels)
+
+            # Check if classes are correctly indexed
+            for i in range(len(c)):
+                if i != c[i]:
+                    raise ValueError('Class labels should be indexed from 0 to no_of_classes - 1.')
 
             for i in c:
                 mask = labels == i
