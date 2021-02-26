@@ -5,7 +5,7 @@ import matplotlib
 import numpy as np
 from sklearn.metrics import mean_squared_error
 
-
+SEED = 42
 
 class BaseModel:
     """All models should subclass BaseModel."""
@@ -317,3 +317,4 @@ class BaseModel:
             plt.clf()
         else:
             plt.show()
+

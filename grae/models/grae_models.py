@@ -4,17 +4,16 @@ import os
 import torch
 import torch.nn as nn
 import numpy as np
-import phate
 import scipy
 
 from grae.data.base_dataset import DEVICE
 from grae.data.base_dataset import FromNumpyDataset
 from grae.models import BaseModel
-from grae.models.external_tools.procrustes import procrustes
+from grae.models.base_model import SEED
+from grae.models.manifold_tools import PHATE, UMAP
 from grae.models.torch_modules import AutoencoderModule, ConvAutoencoderModule
 
 # Hyperparameters defaults
-SEED = 42
 BATCH_SIZE = 128
 LR = .0001
 WEIGHT_DECAY = 0
@@ -22,98 +21,6 @@ EPOCHS = 200
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
 CONV_DIMS = [32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
-PROC_THRESHOLD = 20000  # Procrustes threshold (see PHATE)
-
-
-class PHATE(phate.PHATE, BaseModel):
-    """Wrapper for PHATE to work with torch datasets.
-
-    Also add procrustes transform when dealing with large datasets for improved scalability.
-    """
-
-    def __init__(self, proc_threshold=PROC_THRESHOLD, procrustes_batches_size=1000, procrustes_lm=1000, **kwargs):
-        """Init.
-
-        Args:
-            proc_threshold(int): Threshold beyond which PHATE is computed over mini-batches of the data and batches are
-            realigned with procrustes. Otherwise, vanilla PHATE is used.
-            procrustes_batches_size(int): Batch size of procrustes approach.
-            procrustes_lm (int): Number of anchor points present in all batches. Used as a reference for the procrustes
-            transform.
-            **kwargs: Any remaining keyword arguments are passed to the PHATE model.
-        """
-        self.proc_threshold = proc_threshold
-        self.procrustes_batch_size = procrustes_batches_size
-        self.procrustes_lm = procrustes_lm
-        self.comet_exp = None
-        super().__init__(**kwargs)
-
-    def fit_transform(self, x):
-        """Fit model and transform data.
-
-        Overrides PHATE fit_transform method on datasets larger than self.proc_threshold to compute PHATE over
-        mini-batches with procrustes realignment.
-
-        Args:
-            x(BaseDataset): Dataset to fit and transform.
-
-        Returns:
-            ndarray: Embedding of x.
-
-        """
-        x, _ = x.numpy()
-
-        if x.shape[0] < self.proc_threshold:
-            result = super().fit_transform(x)
-        else:
-            print('            Fitting procrustes...')
-            result = self.fit_transform_procrustes(x)
-        return result
-
-    def fit_transform_procrustes(self, x):
-        """Fit model and transform data for larger datasets.
-
-        If dataset has more than self.proc_threshold samples, then compute PHATE over
-        mini-batches. In each batch, add self.procrustes_lm samples (which are the same for all batches),
-        which can be used to compute a  procrustes transform to roughly align all batches in a coherent manner.
-        This last step is required since PHATE can lead to embeddings with different rotations or reflections
-        depending on the batch.
-
-        Args:
-            x(BaseDataset): Dataset to fit and transform.
-
-        Returns:
-            ndarray: Embedding of x, which is the union of all batches aligned with procrustes.
-
-        """
-        lm_points = x[:self.procrustes_lm, :]  # Reference points included in all batches
-        initial_embedding = super().fit_transform(lm_points)
-        result = [initial_embedding]
-        remaining_x = x[self.procrustes_lm:, :]
-        while len(remaining_x) != 0:
-            if len(remaining_x) >= self.procrustes_batch_size:
-                new_points = remaining_x[:self.procrustes_batch_size, :]
-                remaining_x = np.delete(remaining_x,
-                                        np.arange(self.procrustes_batch_size),
-                                        axis=0)
-            else:
-                new_points = remaining_x
-                remaining_x = np.delete(remaining_x,
-                                        np.arange(len(remaining_x)),
-                                        axis=0)
-
-            subsetx = np.vstack((lm_points, new_points))
-            subset_embedding = super().fit_transform(subsetx)
-
-            d, Z, tform = procrustes(initial_embedding,
-                                     subset_embedding[:self.procrustes_lm, :])
-
-            subset_embedding_transformed = np.dot(
-                subset_embedding[self.procrustes_lm:, :],
-                tform['rotation']) + tform['translation']
-
-            result.append(subset_embedding_transformed)
-        return np.vstack(result)
 
 
 class AE(BaseModel):
@@ -654,3 +561,45 @@ class LargeGRAE(GRAE):
             **kwargs: All other arguments with keys are passed to the GRAE parent class.
         """
         super().__init__(lam=100, relax=False, knn=knn, t=t, **kwargs)
+
+
+class GRAEUMAP(GRAEBase):
+    """GRAE with UMAP regularization."""
+
+    def __init__(self, *, lam=100, n_neighbors=15, min_dist=.1, relax=False, **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Regularization factor.
+            n_neighbors(int): The size of local neighborhood (in terms of number of neighboring sample points) used for
+            manifold approximation.
+            min_dist(float):  The effective minimum distance between embedded points.
+            relax(bool): Use the lambda relaxation scheme. Set to false to use constant lambda throughout training.
+            **kwargs: All other arguments with keys are passed to the GRAEBase parent class.
+        """
+        super().__init__(lam=lam,
+                         embedder=UMAP,
+                         embedder_params=dict(n_neighbors=n_neighbors, min_dist=min_dist),
+                         relax=relax,
+                         **kwargs)
+
+
+class GRAEUMAP_R(GRAEBase):
+    """Relaxed GRAE with UMAP regularization."""
+
+    def __init__(self, *, lam=10, n_neighbors=15, min_dist=.1, **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Initial regularization factor. Will be relaxed throughout training.
+            n_neighbors(int): The size of local neighborhood (in terms of number of neighboring sample points) used for
+            manifold approximation.
+            min_dist(float):  The effective minimum distance between embedded points.
+            relax(bool): Use the lambda relaxation scheme. Set to false to use constant lambda throughout training.
+            **kwargs: All other arguments with keys are passed to the GRAEBase parent class.
+        """
+        super().__init__(lam=lam,
+                         embedder=UMAP,
+                         embedder_params=dict(n_neighbors=n_neighbors, min_dist=min_dist),
+                         relax=True,
+                         **kwargs)
