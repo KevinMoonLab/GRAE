@@ -242,6 +242,9 @@ class Tracking(BaseDataset):
     variables, that is, the horizontal and vertical coordinates of the character. Gaussian noise can be added to the
     background.
 
+    Character Art by usr_share [https://opengameart.org/sites/default/files/rpg_16x16_0.png].
+    Background Art by Blarumyrran, Bart, and surt [https://opengameart.org/content/16x16-tileset-water-dirt-forest].
+
     Contains 2304 images.
     """
     def __init__(self, split='none', split_ratio=FIT_DEFAULT, random_state=SEED, data_path=DEFAULT_PATH):
