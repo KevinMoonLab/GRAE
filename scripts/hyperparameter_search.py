@@ -15,7 +15,7 @@ import comet_ml
 import pandas as pd
 from sklearn.model_selection import ParameterSampler
 
-from grae.experiments.hyperparameter_config import PARAM_GRID, RANDOM_STATE
+from grae.experiments.hyperparameter_config import PARAM_GRID, PARAM_GRID_L, RANDOM_STATE
 from grae.experiments.experiments import fit_validate
 
 # Parser
@@ -86,7 +86,9 @@ for _, exp_params in schedule.iterrows():
     params['random_state'] = RANDOM_STATE
 
     # Fetch parameter combination
-    param_list = list(ParameterSampler(PARAM_GRID,
+    # Use larger neighborhood parameters for iPSC
+    grid = PARAM_GRID_L if params['model_name'] == 'IPSC' else PARAM_GRID
+    param_list = list(ParameterSampler(grid,
                                        n_iter=args.n_iter,
                                        random_state=RANDOM_STATE))
     sampled_params = param_list[param_no]
