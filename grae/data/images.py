@@ -341,7 +341,7 @@ class Rotated(BaseDataset):
     """Pick n_images of n different classes and return a dataset with n_rotations for each image."""
 
     def __init__(self, fetcher, split='none', split_ratio=FIT_DEFAULT,
-                 random_state=SEED, n_images=3, n_rotations=360, max_degree=360, data_path=DEFAULT_PATH):
+                 random_state=SEED, n_images=3, n_rotations=360, max_degree=360, data_path=DEFAULT_PATH, classes=None):
         """Init.
 
         Args:
@@ -353,8 +353,12 @@ class Rotated(BaseDataset):
             n_rotations(int, optional): Number of rotations for each image.
             max_degree(int, optional): Max rotation in degrees. The rotations span the interval [0, max_degree].
             data_path(str, optional): Data directory.
+            classes(list[int], optional): List of classes to select from.
         """
         self.max_degree = max_degree
+
+        if classes is None:
+            classes = 10  # Use all classes
 
         np.random.seed(random_state)
 
@@ -370,7 +374,7 @@ class Rotated(BaseDataset):
         Y = train.targets.detach().numpy()
 
         # Pick classes
-        classes = np.random.choice(10, size=n_images, replace=False)
+        classes = np.random.choice(classes, size=n_images, replace=False)
 
         imgs = list()
 
@@ -433,8 +437,10 @@ class RotatedDigits(Rotated):
             n_rotations(int, optional): Number of rotations for each image.
             data_path(str, optional): Data directory.
         """
+        # Pick digits that aren't rotation invariant (e.g. 1 with a 180 degree rotation is too close to
+        # the base image. 6 and 9 rotated at 180 degrees can also be confusin.)
         super().__init__(torch_datasets.MNIST, split, split_ratio, random_state,
-                         n_images, n_rotations, data_path=data_path)
+                         n_images, n_rotations, data_path=data_path, classes=[2, 3, 5, 7])
 
         if ALLOW_CONV:
             self.data = self.data.view(-1, 1, 28, 28)
