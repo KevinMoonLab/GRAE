@@ -58,15 +58,19 @@ if not os.path.exists(args.results_path) or args.archive:
     )
 
     for exp in experiments:
-        # Parameters
-        for n in ('dataset_name', 'model_name'):
-            results_dict[n].append(exp.get_parameters_summary(parameter=n)['valueCurrent'])
-        # Metrics
-        for n in ['test_MSE', 'test_R2', 'test_Acc']:
-            results_dict[n].append(float(exp.get_metrics(metric=n)[0]['metricValue']))
-        # Others
-        for n in ['success']:
-            results_dict[n].append(int(exp.get_others_summary(other=n)[0]))
+        # Check if experiment was successful. Else continue.
+        success_flag = exp.get_others_summary(other='success')
+
+        if len(success_flag) > 0:
+            # Parameters
+            for n in ('dataset_name', 'model_name'):
+                results_dict[n].append(exp.get_parameters_summary(parameter=n)['valueCurrent'])
+            # Metrics
+            for n in ['test_MSE', 'test_R2', 'test_Acc']:
+                results_dict[n].append(float(exp.get_metrics(metric=n)[0]['metricValue']))
+            # Others
+            for n in ['success']:
+                results_dict[n].append(int(exp.get_others_summary(other=n)[0]))
 
         # Archive if requested
         if args.archive:
@@ -94,6 +98,7 @@ if args.print:
                         data=df, kind="violin", split=False, scale='width', sharex=False, col_wrap=4,
                         order=['GRAE', 'GRAEUMAP', 'AE', 'EAERMargin', 'TopoAE', 'DiffusionNet'],
                         cut=0,
+                        size=2,
                         height=4, aspect=1.2)
 
         g.set_titles(col_template="{col_name}", fontweight='bold', size=15)
