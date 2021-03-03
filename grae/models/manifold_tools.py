@@ -9,6 +9,8 @@ from grae.models.base_model import BaseModel, SEED
 from grae.models.external_tools.procrustes import procrustes
 
 PROC_THRESHOLD = 20000
+PROC_BATCH_SIZE = 5000
+PROC_LM = 1000
 
 
 def fit_transform_procrustes(x, fit_transform_call, procrustes_batch_size, procrustes_lm):
@@ -67,7 +69,8 @@ class PHATE(phate.PHATE, BaseModel):
     Also add procrustes transform when dealing with large datasets for improved scalability.
     """
 
-    def __init__(self, proc_threshold=PROC_THRESHOLD, procrustes_batches_size=1000, procrustes_lm=1000, **kwargs):
+    def __init__(self, proc_threshold=PROC_THRESHOLD, procrustes_batches_size=PROC_BATCH_SIZE,
+                 procrustes_lm=PROC_LM, **kwargs):
         """Init.
 
         Args:
@@ -130,8 +133,8 @@ class UMAP(BaseModel):
 
     """
 
-    def __init__(self, random_state=SEED, proc_threshold=PROC_THRESHOLD, procrustes_batch_size=1000,
-                 procrustes_lm=1000, **kwargs):
+    def __init__(self, random_state=SEED, proc_threshold=PROC_THRESHOLD, procrustes_batch_size=PROC_BATCH_SIZE,
+                 procrustes_lm=PROC_LM, **kwargs):
         """Init.
 
         Args:

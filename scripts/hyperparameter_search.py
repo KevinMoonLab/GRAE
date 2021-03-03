@@ -87,7 +87,7 @@ for _, exp_params in schedule.iterrows():
 
     # Fetch parameter combination
     # Use larger neighborhood parameters for iPSC
-    grid = PARAM_GRID_L if params['model_name'] == 'IPSC' else PARAM_GRID
+    grid = PARAM_GRID_L if params['dataset_name'] == 'IPSC' else PARAM_GRID
     param_list = list(ParameterSampler(grid,
                                        n_iter=args.n_iter,
                                        random_state=RANDOM_STATE))

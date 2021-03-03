@@ -2,7 +2,6 @@ import scipy.stats as stats
 from copy import deepcopy
 
 neighbor_param = [5, 10, 20]
-neighbor_param_L = [20, 50, 100]
 
 PARAM_GRID = {
     'lr': stats.loguniform(a=2e-4, b=2e-3),
@@ -20,8 +19,8 @@ PARAM_GRID = {
 
 # Create a copy of the parameter grid with larger neighborhood parameters for larger datasets
 PARAM_GRID_L = deepcopy(PARAM_GRID)
-PARAM_GRID_L['knn'] = neighbor_param_L
-PARAM_GRID_L['n_neighbors'] = neighbor_param_L
+PARAM_GRID_L['t'] = [100, 250]
+PARAM_GRID_L['lam'] = stats.loguniform(a=.5, b=1e2)
 
 # Main seed. Used for train/test splitting and generating hyperparameter combinations
 RANDOM_STATE = 42
