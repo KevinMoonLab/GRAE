@@ -9,7 +9,7 @@ import comet_ml
 from comet_ml.query import Tag
 import pandas as pd
 from sklearn.model_selection import ParameterSampler
-from grae.experiments.hyperparameter_config import PARAM_GRID, RANDOM_STATE
+from grae.experiments.hyperparameter_config import PARAM_GRID, PARAM_GRID_L, RANDOM_STATE
 
 # Parser
 parser = argparse.ArgumentParser(
@@ -129,15 +129,20 @@ df_main = pd.read_csv(args.schedule_path, index_col=False)
 param_list = list(ParameterSampler(PARAM_GRID,
                                    n_iter=30,
                                    random_state=RANDOM_STATE))
+param_list_L = list(ParameterSampler(PARAM_GRID_L, # Parameter grid for iPSC
+                                   n_iter=30,
+                                   random_state=RANDOM_STATE))
 
 
 # Helper function to substitute values from reference schedule with the best ones according to the search
 def sub_row(x):
     key = x['dataset_name'], x['model_name']
+    p_list = param_list_L if x['dataset_name'] == 'IPSC' else param_list
+
     if key in df.index:
         ref_row = df.loc[key]
         x['estimated_time'] = ref_row['durationMin']
-        params = param_list[int(ref_row['param_no'])]
+        params = p_list[int(ref_row['param_no'])]
 
         for key, item in params.items():
             # Only replace hyperparameters if value is already present in schedule
