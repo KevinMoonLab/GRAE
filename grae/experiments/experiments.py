@@ -83,7 +83,12 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
     # Fetch and split dataset.
     data_train_full = getattr(grae.data, dataset_name)(split='train', random_state=random_state, data_path=data_path)
     data_test = getattr(grae.data, dataset_name)(split='test', random_state=random_state, data_path=data_path)
-    data_train, data_val = data_train_full.validation_split(random_state=FOLD_SEEDS[k])
+
+    if model_name == 'PCA':
+        # No validation split on PCA
+        data_train, data_val = data_train_full, None
+    else:
+        data_train, data_val = data_train_full.validation_split(random_state=FOLD_SEEDS[k])
 
     # Model
     m = getattr(grae.models, model_name)(random_state=FOLD_SEEDS[k], **model_params)

@@ -2,7 +2,7 @@
 import numpy as np
 import phate
 import umap
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA as SKPCA
 from sklearn.pipeline import make_pipeline
 
 from grae.models.base_model import BaseModel, SEED
@@ -165,7 +165,7 @@ class UMAP(BaseModel):
         if x.shape[1] > 100 and x.shape[0] > 1000:
             # Note : PHATE does a PCA step by default. See their doc.
             print('More than 100 dimensions and 1000 samples. Adding PCA step to UMAP pipeline.')
-            steps = [PCA(n_components=100)] + steps
+            steps = [SKPCA(n_components=100)] + steps
 
         self.estimator = make_pipeline(*steps)
 
@@ -262,3 +262,79 @@ class UMAP(BaseModel):
         results = self.estimator.inverse_transform(x)
         self.estimator[-1]._raw_data = raw_data_bk
         return results
+
+
+class PCA(BaseModel):
+    """Wrapper for PCA to work with torch datasets. Inherit utility methods from BaseModel."""
+
+    def __init__(self, n_components=2, **kwargs):
+        """Init.
+
+        Args:
+            n_components(int): Number of principal components to keep.
+            **kwargs: Any remaining keyword arguments are passed to the sklearn PCA class.
+        """
+        self.comet_exp = None
+        self.estimator = SKPCA(n_components=n_components, **kwargs)
+
+    def fit_transform(self, x):
+        """Fit model and transform data.
+
+        Args:
+            x(BaseDataset): Dataset to fit and transform.
+
+        Returns:
+            ndarray: Embedding of x.
+
+        """
+        x, _ = x.numpy()
+        return self.estimator.fit_transform(x)
+
+    def fit(self, x):
+        """Fit data.
+
+        Args:
+            x(BaseDataset): Dataset to fit.
+
+        """
+        x, _ = x.numpy()
+        self.estimator.fit(x)
+
+    def transform(self, x):
+        """Transform data.
+
+        Args:
+            x(BaseDataset): Dataset to transform.
+
+        Returns:
+            ndarray: Embedding of x.
+
+        """
+        x, _ = x.numpy()
+        return self.estimator.transform(x)
+
+    def inverse_transform(self, x):
+        """Inverse data back to input space.
+
+        Args:
+            x(ndarray): Dataset to inverse.
+
+        Returns:
+            ndarray: Inverse of x.
+
+        """
+        return self.estimator.inverse_transform(x)
+
+    def reconstruct(self, x):
+        """Transform and inverse x.
+
+        Args:
+            x(BaseDataset): Data to transform and reconstruct.
+
+        Returns:
+            ndarray: Reconstructions of x.
+
+        """
+        data_len = len(x)
+        data_shape = x[0][0].shape
+        return self.estimator.inverse_transform(self.transform(x)).reshape((data_len, *data_shape))

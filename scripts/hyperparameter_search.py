@@ -83,6 +83,7 @@ for _, exp_params in schedule.iterrows():
     params = exp_params.dropna().to_dict()
 
     # Use same random state for all experiments for reproducibility
+    # Note : this seed is used for splitting the data. Ancillary seeds are used to initialize models
     params['random_state'] = RANDOM_STATE
 
     # Fetch parameter combination
