@@ -126,11 +126,12 @@ class DiffusionNet(AE):
 
     """
 
-    def __init__(self, *, lam=100, n_neighbors=100, alpha=1, epsilon='bgh', subsample=None, **kwargs):
+    def __init__(self, *, lam=100, eta=100, n_neighbors=100, alpha=1, epsilon='bgh_generous', subsample=None, **kwargs):
         """Init.
 
         Args:
-            lam(float): Regularization factor for the EV constraint.
+            lam(float): Regularization factor for the coordinate constraint.
+            eta(float): Regularization factor for the EV constraint.
             n_neighbors(int): The size of local neighborhood used to build the neighborhood graph.
             alpha(float): Exponent to be used for the left normalization in constructing the diffusion map.
             epsilon(Any):  Method for choosing the epsilon. See scikit-learn NearestNeighbors class for details.
@@ -143,6 +144,7 @@ class DiffusionNet(AE):
         self.alpha = alpha
         self.epsilon = epsilon
         self.subsample = subsample
+        self.eta = eta
 
     def fit(self, x):
         """Fit model to data.
@@ -159,6 +161,11 @@ class DiffusionNet(AE):
         self.batch_size = len(x)
 
         x_np, _ = x.numpy()
+
+        # Reduce dimensionality for faster kernel computations. We do the same with PHATE and UMAP.
+        if x_np.shape[1] > 100 and x_np.shape[0] > 1000:
+            print('Computing PCA before running DM...')
+            x_np = PCA(n_components=100).fit_transform(x_np)
 
         neighbor_params = {'n_jobs': -1, 'algorithm': 'ball_tree'}
         mydmap = dm.DiffusionMap.from_sklearn(n_evecs=self.n_components,
@@ -202,20 +209,16 @@ class DiffusionNet(AE):
             idx(torch.Tensor): Indices of samples in batch.
 
         """
-        if self.lam > 0:
-            rec_loss = self.criterion(x, x_hat)
-            coord_loss = self.lam * self.criterion(z, self.z[idx])
-            Ev_loss = (torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[0] *
-                                                      self.I_t.to_dense()),
-                                                     z[:, 0].view(self.batch_size, 1)),
-                                            2)) + torch.mean(
-                torch.pow(torch.mm((self.P.to_dense() - self.Evalues[1] *
-                                    self.I_t.to_dense()),
-                                   z[:, 1].view(self.batch_size, 1)), 2)))
+        rec_loss = self.criterion(x, x_hat)
+        coord_loss = self.criterion(z, self.z[idx])
+        Ev_loss = (torch.mean(torch.pow(torch.mm((self.P.to_dense() - self.Evalues[0] *
+                                                  self.I_t.to_dense()),
+                                                 z[:, 0].view(self.batch_size, 1)),
+                                        2)) + torch.mean(
+            torch.pow(torch.mm((self.P.to_dense() - self.Evalues[1] *
+                                self.I_t.to_dense()),
+                               z[:, 1].view(self.batch_size, 1)), 2)))
 
-            loss = rec_loss + coord_loss + self.lam * Ev_loss
-        else:
-
-            loss = self.criterion(x, x_hat)
+        loss = rec_loss + self.lam * coord_loss + self.eta * Ev_loss
 
         loss.backward()
