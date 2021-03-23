@@ -19,7 +19,7 @@ LR = .0001
 WEIGHT_DECAY = 0
 EPOCHS = 200
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
-CONV_DIMS = [16, 32, 64]  # Default conv channels
+CONV_DIMS = [32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
 
 
