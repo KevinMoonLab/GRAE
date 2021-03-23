@@ -14,6 +14,7 @@ from scipy import ndimage
 import requests
 from skimage.transform import resize
 from skimage.util import random_noise
+from tensorflow.keras.datasets import mnist
 
 from grae.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
 
@@ -336,6 +337,14 @@ class Tracking(BaseDataset):
         # other datasets
         self.targets = self.targets[:, 0]
 
+
+class MnistDigits(BaseDataset):   
+    def __init__(self, n_samples = 10000, split='none', split_ratio=FIT_DEFAULT, random_state=SEED):
+        (train_images, Y_train), (test_images, Y_test) = mnist.load_data()
+        inputs = train_images.reshape((train_images.shape[0], 1, 28, 28))/255.
+        inputs = inputs[:n_samples]
+        targets = Y_train[:n_samples]
+        super().__init__(inputs, targets, split, split_ratio, random_state)
 
 class Rotated(BaseDataset):
     """Pick n_images of n different classes and return a dataset with n_rotations for each image."""

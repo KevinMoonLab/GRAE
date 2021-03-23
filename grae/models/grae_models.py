@@ -19,7 +19,7 @@ LR = .0001
 WEIGHT_DECAY = 0
 EPOCHS = 200
 HIDDEN_DIMS = (800, 400, 200)  # Default fully-connected dimensions
-CONV_DIMS = [32, 64]  # Default conv channels
+CONV_DIMS = [16, 32, 64]  # Default conv channels
 CONV_FC_DIMS = [400, 200]  # Default fully-connected dimensions after convs
 
 
@@ -603,3 +603,187 @@ class GRAEUMAP_R(GRAEBase):
                          embedder_params=dict(n_neighbors=n_neighbors, min_dist=min_dist),
                          relax=True,
                          **kwargs)
+
+
+from grae.models.parametric_umap import ParametricUMAP
+import tensorflow as tf
+
+
+# %%
+class PUMAP(AE):
+    def __init__(self, *,
+                 lr=LR,
+                 epochs=EPOCHS,
+                 batch_size=BATCH_SIZE,
+                 weight_decay=WEIGHT_DECAY,
+                 random_state=SEED,
+                 n_components=2,
+                 hidden_dims=HIDDEN_DIMS,
+                 conv_dims=CONV_DIMS,
+                 conv_fc_dims=CONV_FC_DIMS,
+                 noise=0,
+                 patience=5,
+                 data_val=None,
+                 comet_exp=None,
+                 write_path='',
+                 lam=100,
+                 n_neighbors=15,
+                 min_dist=1):
+        self.random_state = random_state
+        self.n_components = n_components
+        self.hidden_dims = list(hidden_dims)
+        self.fitted = False  # If model was fitted
+        self.torch_module = None  # Will be initialized to the appropriate torch module when fit method is called
+        self.optimizer = None  # Will be initialized to the appropriate optimizer when fit method is called
+        self.lr = lr
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.weight_decay = weight_decay  # not use
+        self.lam = lam
+        self.conv_dims = conv_dims
+        self.conv_fc_dims = conv_fc_dims
+        self.noise = noise
+        self.comet_exp = comet_exp
+        self.data_shape = None  # Shape of input data
+
+        if data_val is not None:
+            self.data_val, _ = data_val.numpy()
+        else:
+            self.data_val = None
+
+        self.val_loader = None  # Not used
+        self.patience = patience
+        self.current_loss_min = np.inf  # not used
+        self.early_stopping_count = 0  # not used
+        self.write_path = write_path
+
+        umap_param = dict(n_neighbors=n_neighbors,
+                          min_dist=min_dist)
+
+        # These paramters always true
+        embedder_params = dict(
+            parametric_embedding=True,
+            parametric_reconstruction=True,
+            autoencoder_loss=True)
+        # change verbose to False
+        other_parameters = dict(lr=self.lr,
+                                lam_=self.lam,
+                                patience=self.patience,
+                                reconstruction_validation=self.data_val,
+                                batch_size=self.batch_size,
+                                n_training_epochs=self.epochs,
+                                n_components=self.n_components,
+                                write_path=self.write_path,
+                                verbose=True)
+
+        self.embedder_params = embedder_params
+        self.embedder_params.update(other_parameters)
+        self.embedder_params.update(umap_param)
+
+    def initialize_model(self, data_shape):
+
+        # Build decoder and encoder
+        if len(data_shape) == 1:
+            self.dimensions = None
+            input_size = data_shape[0]
+            encoder = tf.keras.Sequential([
+                tf.keras.layers.InputLayer(input_shape=self.data_shape),
+                tf.keras.layers.Flatten()]
+            )
+            for i in self.hidden_dims:
+                encoder.add(tf.keras.layers.Dense(units=i, activation="relu"))
+
+            encoder.add(tf.keras.layers.Dense(units=self.n_components, name="z"))
+
+            decoder = tf.keras.Sequential([tf.keras.layers.InputLayer(input_shape=self.n_components)])
+
+            self.hidden_dims.reverse()
+            for i in self.hidden_dims:
+                decoder.add(tf.keras.layers.Dense(units=i, activation="relu"))
+
+            decoder.add(tf.keras.layers.Dense(
+                units=np.product(self.data_shape), name="recon", activation=None
+            ))
+
+        if len(data_shape) == 3:
+            in_channel, height, width = data_shape
+            self.dimensions = (height, width, in_channel)
+            # dims = (28,28, 1)
+            # n_components = 2
+            encoder = tf.keras.Sequential([
+                tf.keras.layers.InputLayer(input_shape=(height, width, in_channel))])
+
+            print(self.conv_dims)
+            for i in self.conv_dims:
+                encoder.add(tf.keras.layers.Conv2D(
+                    filters=i, kernel_size=3, strides=(1, 1), activation="relu", padding="same"
+                ))
+                if i == self.conv_dims[-1]:
+                    encoder.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), name="final_conv"))
+                else:
+                    encoder.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2)))
+
+            encoder.add(tf.keras.layers.Flatten())
+            for i in self.conv_fc_dims:
+                encoder.add(tf.keras.layers.Dense(units=i, activation="relu"))
+
+            encoder.add(tf.keras.layers.Dense(units=self.n_components, name="z"))
+
+            dim_s = encoder.get_layer('final_conv').output_shape[1:]
+            dim = np.prod(dim_s)
+
+            decoder = tf.keras.Sequential([tf.keras.layers.InputLayer(
+                input_shape=(self.n_components))])
+
+            self.conv_fc_dims.reverse()
+            for i in self.conv_fc_dims:
+                decoder.add(tf.keras.layers.Dense(units=i, activation="relu"))
+
+            decoder.add(tf.keras.layers.Dense(units=dim, activation="relu"))
+            decoder.add(tf.keras.layers.Reshape(target_shape=dim_s))
+
+            self.conv_dims.reverse()
+            for i in self.conv_dims:
+                decoder.add(tf.keras.layers.Conv2DTranspose(
+                    filters=i, kernel_size=2, strides=(2, 2), activation="relu", padding="same"
+                ))
+                decoder.add(tf.keras.layers.Conv2D(
+                    filters=i, kernel_size=3, strides=(1, 1), activation="relu", padding="same"
+                ))
+            decoder.add(tf.keras.layers.Conv2D(
+                filters=in_channel, kernel_size=1, strides=(1, 1), padding="same"
+            ))
+
+        self.encoder = encoder
+        self.decoder = decoder
+        self.embedder_params.update(decoder=self.decoder, dims=self.dimensions)
+        self.embedder_params.update(encoder=self.encoder)
+        self.model = ParametricUMAP(**self.embedder_params)
+
+    def fit(self, x):
+
+        self.data_shape = x[0][0].shape
+        x, _ = x.numpy()
+        # pbd.set_trace()
+        self.initialize_model(self.data_shape)
+        self.embedding = self.model.fit_transform(x)
+
+        # save and load the model
+
+    def transform(self, x):
+        x, _ = x.numpy()
+        if len(self.data_shape) == 3:
+            dim_reshape = (x.shape[0],) + self.dimensions
+            x = x.reshape(dim_reshape)
+        return self.model.transform(x)
+
+    def inverse_transform(self, x):
+        return self.model.inverse_transform(x)
+
+    def load(self):
+        pass
+        # self.model = tf.keras.models.load_model(os.path.join(self.write_path,
+        #                                                   'checkpoint.h5'))
+
+
+
