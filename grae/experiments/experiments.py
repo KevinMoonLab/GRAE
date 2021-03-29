@@ -67,6 +67,9 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
         custom_tag(str): Custom tag for Comet experiment.
 
     """
+    # Increment fold to avoid reusing validation seeds
+    k += 10
+
     # Comet experiment
     exp = Experiment(parse_args=False)
     exp.disable_mp()
@@ -121,7 +124,7 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
 
     with exp.train():
         train_z, train_metrics = prober.score(data_train_full)
-        _, train_y = data_train.numpy()
+        _, train_y = data_train_full.numpy()
 
         # Log train metrics
         exp.log_metric(name='fit_time', value=fit_time)
