@@ -33,9 +33,9 @@ class LinearBlock(nn.Module):
 class MLP(nn.Sequential):
     """Sequence of FC layers with Relu activations.
 
-    No activation on last layer."""
+    No activation on last layer, unless sigmoid is requested."""
 
-    def __init__(self, dim_list):
+    def __init__(self, dim_list, sigmoid=False):
         """Init.
 
         Args:
@@ -46,13 +46,17 @@ class MLP(nn.Sequential):
         modules = [LinearBlock(dim_list[i - 1], dim_list[i]) for i in range(1, len(dim_list) - 1)]
         modules.append(nn.Linear(dim_list[-2], dim_list[-1]))
 
+        if sigmoid:
+            modules.append(nn.Sigmoid())
+
         super().__init__(*modules)
+
 
 
 class AutoencoderModule(nn.Module):
     """Vanilla Autoencoder torch module"""
 
-    def __init__(self, input_dim, hidden_dims, z_dim, noise=0):
+    def __init__(self, input_dim, hidden_dims, z_dim, noise=0, vae=False, sigmoid=False):
         """Init.
 
         Args:
@@ -61,15 +65,22 @@ class AutoencoderModule(nn.Module):
             bottleneck. See MLP for example.
             z_dim(int): Bottleneck dimension.
             noise(float): Variance of the gaussian noise applied to the latent space before reconstruction.
+            vae(bool): Make this architecture a VAE. Uses an isotropic Gaussian with identity covariance matrix as the
+            prior.
+            sigmoid(bool): Apply sigmoid to the output.
         """
         super().__init__()
+        self.vae = vae
 
-        full_list = [input_dim] + list(hidden_dims) + [z_dim]
+        # Double the size of the latent space if vae to model both mu and logvar
+        full_list = [input_dim] + list(hidden_dims) + [z_dim * 2 if vae else z_dim]
 
         self.encoder = MLP(dim_list=full_list)
 
         full_list.reverse()  # Use reversed architecture for decoder
-        self.decoder = MLP(dim_list=full_list)
+        full_list[0] = z_dim
+
+        self.decoder = MLP(dim_list=full_list, sigmoid=sigmoid)
         self.noise = noise
 
     def forward(self, x):
@@ -86,12 +97,26 @@ class AutoencoderModule(nn.Module):
         """
         z = self.encoder(x)
 
+        # Old idea to inject noise in latent space. Currently not used.
         if self.noise > 0:
             z_decoder = z + self.noise * torch.randn_like(z)
         else:
             z_decoder = z
 
-        return self.decoder(z_decoder), z
+        if self.vae:
+            mu, logvar = z.chunk(2, dim=-1)
+
+            # Reparametrization trick
+            if self.training:
+                z_decoder = mu + torch.exp(logvar / 2.) * torch.randn_like(logvar)
+            else:
+                z_decoder = mu
+
+        output = self.decoder(z_decoder)
+
+        # Standard Autoencoder forward pass
+        # Note : will still return mu and logvar as a single tensor for compatibility with other classes
+        return output, z
 
 
 # Convolution architecture
@@ -167,7 +192,7 @@ class UpConvBlock(nn.Module):
 class LastConv(UpConvBlock):
     """Add one convolution to UpConvBlock with no activation and kernel_size = 1.
 
-    Used as the output layern in the convolutional AE architecture."""
+    Used as the output layer in the convolutional AE architecture."""
 
     def __init__(self, in_channels, out_channels):
         """Init.
@@ -253,7 +278,7 @@ class ConvDecoder(nn.Module):
 
     FC architecture followed by upscaling convolutions.
     Note that last layer uses a 1x1 kernel with no activations. See UpConvBlock and LastConv for details."""
-    def __init__(self, H, W, input_channel, channel_list, hidden_dims, z_dim):
+    def __init__(self, H, W, input_channel, channel_list, hidden_dims, z_dim, sigmoid):
         """Init.
 
         Args:
@@ -266,6 +291,7 @@ class ConvDecoder(nn.Module):
             hidden_dims(List[int]): List of hidden dimensions for the FC network before the convolutions.
             Do not include dimensions of the input layer and the bottleneck. See MLP for example.
             z_dim(int): Dimension of the bottleneck.
+            sigmoid(bool) : Apply sigmoid to output.
         """
         super().__init__()
         self.H = H
@@ -286,6 +312,9 @@ class ConvDecoder(nn.Module):
             modules.append(UpConvBlock(in_channels=channels[i - 1], out_channels=channels[i]))
 
         modules.append(LastConv(in_channels=channels[-1], out_channels=input_channel))
+
+        if sigmoid:
+            modules.append(nn.Sigmoid())
 
         self.conv = nn.Sequential(*modules)
         self.first_channel = channel_list[0]
@@ -309,7 +338,7 @@ class ConvDecoder(nn.Module):
 
 class ConvAutoencoderModule(nn.Module):
     """Autoencoder with convolutions for image datasets."""
-    def __init__(self, H, W, input_channel, channel_list, hidden_dims, z_dim, noise):
+    def __init__(self, H, W, input_channel, channel_list, hidden_dims, z_dim, noise, vae=False, sigmoid=False):
         """Init. Arguments specify the architecture of the encoder. Decoder will use the reverse architecture.
 
         Args:
@@ -323,13 +352,18 @@ class ConvAutoencoderModule(nn.Module):
             Do not include dimensions of the input layer and the bottleneck. See MLP for example.
             z_dim(int): Dimension of the bottleneck.
             noise(float): Variance of the gaussian noise applied to the latent space before reconstruction.
+            vae(bool): Make this architecture a VAE. Uses an isotropic Gaussian with identity covariance matrix as the
+            prior.
+            sigmoid(bool): Apply sigmoid to the output.
         """
         super().__init__()
+        self.vae = vae
 
-        self.encoder = ConvEncoder(H, W, input_channel, channel_list, hidden_dims, z_dim)
+        # Double size of encoder output if using a VAE to model both mu and logvar
+        self.encoder = ConvEncoder(H, W, input_channel, channel_list, hidden_dims, z_dim * 2 if self.vae else z_dim)
         channel_list.reverse()
         hidden_dims.reverse()
-        self.decoder = ConvDecoder(H, W, input_channel, channel_list, hidden_dims, z_dim)
+        self.decoder = ConvDecoder(H, W, input_channel, channel_list, hidden_dims, z_dim, sigmoid)
         self.noise = noise
 
     def forward(self, x):
@@ -343,11 +377,5 @@ class ConvAutoencoderModule(nn.Module):
                 torch.Tensor: Reconstructions
                 torch.Tensor: Embedding (latent space coordinates)
         """
-        z = self.encoder(x)
-
-        if self.noise > 0:
-            z_decoder = z + self.noise * torch.randn_like(z)
-        else:
-            z_decoder = z
-
-        return self.decoder(z_decoder), z
+        # Same forward pass as standard autoencoder
+        return AutoencoderModule.forward(self, x)

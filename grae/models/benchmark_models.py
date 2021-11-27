@@ -222,3 +222,72 @@ class DiffusionNet(AE):
         loss = rec_loss + self.lam * coord_loss + self.eta * Ev_loss
 
         loss.backward()
+
+
+class VAE(AE):
+    """Variational Autoencoder class."""
+
+    def __init__(self, *, beta=1, loss='MSE', **kwargs):
+        """Init.
+
+        Args:
+            beta(float): Regularization factor for KL divergence.
+            loss(str): 'BCE', 'MSE' or 'auto' for the reconstruction loss, depending on the desired p(x|z).
+            **kwargs: All other keyword arguments are passed to the AE parent class.
+        """
+        super().__init__(**kwargs)
+        self.beta = beta
+        self.loss = loss
+
+        if self.loss not in ('BCE', 'MSE'):
+            raise ValueError(f'loss should either be "BCE" or "MSE", not {loss}')
+
+    def init_torch_module(self, data_shape):
+        super().init_torch_module(data_shape, vae=True, sigmoid=self.loss == 'BCE')
+
+        # Also initialize criterion
+        self.criterion = torch.nn.MSELoss(reduction='mean') if self.loss == 'MSE' else torch.nn.BCELoss(reduction='mean')
+
+    def transform(self, x):
+        """Transform data.
+
+        Args:
+            x(BaseDataset): Dataset to transform.
+        Returns:
+            ndarray: Embedding of x.
+
+        """
+        self.torch_module.eval()
+        loader = torch.utils.data.DataLoader(x, batch_size=self.batch_size,
+                                             shuffle=False)
+        # Same as AE but slice only mu, ignore logvar
+        z = [self.torch_module.encoder(batch.to(DEVICE))[:, :self.n_components].cpu().detach().numpy() for batch, _, _ in loader]
+        return np.concatenate(z)
+
+    def compute_loss(self, x, x_hat, z, idx):
+        """Apply VAE loss.
+
+        Args:
+            x(torch.Tensor): Input batch.
+            x_hat(torch.Tensor): Reconstructed batch (decoder output).
+            z(torch.Tensor): Batch embedding (encoder output).
+            idx(torch.Tensor): Indices of samples in batch.
+
+        """
+        mu, logvar = z.chunk(2, dim=-1)
+
+        # From pytorch repo
+        # see Appendix B from VAE paper:
+        # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
+        # https://arxiv.org/abs/1312.6114
+        # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+        if self.beta > 0:
+            # MSE and BCE are averaged. Do the same for KL
+            KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+        else:
+            KLD = 0
+
+        loss = self.criterion(x_hat, x) + self.beta * KLD
+
+        loss.backward()
+

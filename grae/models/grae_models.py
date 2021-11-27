@@ -94,13 +94,15 @@ class AE(BaseModel):
         self.early_stopping_count = 0
         self.write_path = write_path
 
-    def init_torch_module(self, data_shape):
+    def init_torch_module(self, data_shape, vae=False, sigmoid=False):
         """Infer autoencoder architecture (MLP or Convolutional + MLP) from data shape.
 
         Initialize torch module.
 
         Args:
             data_shape(tuple[int]): Shape of one sample.
+            vae(bool): Make this architecture a VAE.
+            sigmoid(bool): Apply sigmoid to decoder output.
 
         """
         # Infer input size from data. Initialize torch module and optimizer
@@ -110,7 +112,9 @@ class AE(BaseModel):
             self.torch_module = AutoencoderModule(input_dim=input_size,
                                                   hidden_dims=self.hidden_dims,
                                                   z_dim=self.n_components,
-                                                  noise=self.noise)
+                                                  noise=self.noise,
+                                                  vae=vae,
+                                                  sigmoid=sigmoid)
         elif len(data_shape) == 3:
             in_channel, height, width = data_shape
             #  Samples are 3D tensors (i.e. images). Convolutional case.
@@ -120,7 +124,9 @@ class AE(BaseModel):
                                                       channel_list=self.conv_dims,
                                                       hidden_dims=self.conv_fc_dims,
                                                       z_dim=self.n_components,
-                                                      noise=self.noise)
+                                                      noise=self.noise,
+                                                      vae=vae,
+                                                      sigmoid=sigmoid)
         else:
             raise Exception(f'Invalid channel number. X has {len(data_shape)}')
 
@@ -221,7 +227,7 @@ class AE(BaseModel):
             idx(torch.Tensor): Indices of samples in batch.
 
         """
-        loss = self.criterion(x, x_hat)
+        loss = self.criterion(x_hat, x)
         loss.backward()
 
     def end_epoch(self, epoch):
