@@ -291,3 +291,76 @@ class VAE(AE):
 
         loss.backward()
 
+class DAE(AE):
+    """Denoising Autoencoder.
+
+    Supports both masking and gaussian noise."""
+
+    def __init__(self, *, mask_p=.2, sigma=1, clip=False, **kwargs):
+        """Init.
+
+        Args:
+            mask_p(float): Input features will be set to 0 with probability p.
+            sigma(float): Standard deviation of the isotropic gaussian noise added to the input.
+            clip(bool): clip values between 0 and 1.
+            **kwargs: All other keyword arguments are passed to the AE parent class.
+        """
+        super().__init__(**kwargs)
+
+        if sigma < 0:
+            raise ValueError(f'sigma should be a positive number.')
+
+        if mask_p < 0 or mask_p >= 1:
+            raise ValueError(f'Sigma should be in [0, 1).')
+
+        self.mask_p = mask_p
+        self.sigma = sigma
+        self.clip = clip
+
+    def train_body(self, batch):
+        """Called in main training loop to update torch_module parameters.
+
+        Add corruption to input.
+
+        Args:
+            batch(tuple[torch.Tensor]): Training batch.
+
+        """
+        data, _, idx = batch  # No need for labels. Training is unsupervised
+        data = data.to(DEVICE)
+
+        data_input = data.clone()
+
+        if self.sigma > 0:
+            data_input += self.sigma * torch.randn_like(data_input, device=DEVICE)
+            if self.clip:
+                data_input = torch.clip(data_input, 0, 1)
+
+        if self.mask_p > 0:
+            if len(data.shape) == 4:
+                # Broadcast noise across RGB channel
+                n, _, h, w = data.shape
+                u = torch.rand((n, 1, h, w),
+                                   dtype=data_input.dtype,
+                                   layout=data_input.layout,
+                                   device=data_input.device)
+                # View sample
+            else:
+                u = torch.rand_like(data_input, device=DEVICE)
+
+            data_input *= u > .9
+
+            # View samples for debugging
+            # for i in range(3):
+            #     sample = data_input[i].cpu().numpy()
+            #     sample = np.transpose(sample, (1, 2, 0)).squeeze()
+            #     import matplotlib.pyplot as plt
+            #     plt.imshow(sample)
+            #     plt.show()
+            # exit()
+
+        x_hat, z = self.torch_module(data_input)  # Forward pass
+
+        # Compute loss using original data
+        self.compute_loss(data, x_hat, z, idx)
+
