@@ -370,7 +370,6 @@ class Rotated(BaseDataset):
                         transform=transforms_MNIST)
 
         X = train.data.detach().numpy().reshape(60000, 784)
-        X = X / X.max()
         Y = train.targets.detach().numpy()
 
         # Pick classes
@@ -404,6 +403,7 @@ class Rotated(BaseDataset):
         inputs, targets, angles = zip(*rotations)
 
         inputs = np.concatenate(inputs)
+        inputs = (inputs - inputs.min())/inputs.max()
         targets = np.concatenate(targets)
         angles = np.concatenate(angles)
 
