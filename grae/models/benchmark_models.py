@@ -296,7 +296,7 @@ class DAE(AE):
 
     Supports both masking and gaussian noise."""
 
-    def __init__(self, *, mask_p=.2, sigma=1, clip=False, **kwargs):
+    def __init__(self, *, mask_p=0, sigma=0, clip=False, **kwargs):
         """Init.
 
         Args:
