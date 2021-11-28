@@ -294,7 +294,10 @@ class VAE(AE):
 class DAE(AE):
     """Denoising Autoencoder.
 
-    Supports both masking and gaussian noise."""
+    Supports both masking and gaussian noise.
+
+    See Stacked Denoising Autoencoders: Learning Useful Representations in
+    a Deep Network with a Local Denoising Criterion by Vincent et al."""
 
     def __init__(self, *, mask_p=0, sigma=0, clip=False, **kwargs):
         """Init.
@@ -348,7 +351,7 @@ class DAE(AE):
             else:
                 u = torch.rand_like(data_input, device=DEVICE)
 
-            data_input *= u > .9
+            data_input *= u > self.mask_p
 
             # View samples for debugging
             # for i in range(3):
