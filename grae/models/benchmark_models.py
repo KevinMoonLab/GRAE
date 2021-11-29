@@ -5,6 +5,7 @@ import scipy
 import torch
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
+from torch.autograd import grad as torch_grad
 from pydiffmap import diffusion_map as dm
 
 from grae.models.grae_models import AE
@@ -246,7 +247,8 @@ class VAE(AE):
         super().init_torch_module(data_shape, vae=True, sigmoid=self.loss == 'BCE')
 
         # Also initialize criterion
-        self.criterion = torch.nn.MSELoss(reduction='mean') if self.loss == 'MSE' else torch.nn.BCELoss(reduction='mean')
+        self.criterion = torch.nn.MSELoss(reduction='mean') if self.loss == 'MSE' else torch.nn.BCELoss(
+            reduction='mean')
 
     def transform(self, x):
         """Transform data.
@@ -261,7 +263,8 @@ class VAE(AE):
         loader = torch.utils.data.DataLoader(x, batch_size=self.batch_size,
                                              shuffle=False)
         # Same as AE but slice only mu, ignore logvar
-        z = [self.torch_module.encoder(batch.to(DEVICE))[:, :self.n_components].cpu().detach().numpy() for batch, _, _ in loader]
+        z = [self.torch_module.encoder(batch.to(DEVICE))[:, :self.n_components].cpu().detach().numpy() for batch, _, _
+             in loader]
         return np.concatenate(z)
 
     def compute_loss(self, x, x_hat, z, idx):
@@ -290,6 +293,7 @@ class VAE(AE):
         loss = self.criterion(x_hat, x) + self.beta * KLD
 
         loss.backward()
+
 
 class DAE(AE):
     """Denoising Autoencoder.
@@ -332,26 +336,26 @@ class DAE(AE):
         data, _, idx = batch  # No need for labels. Training is unsupervised
         data = data.to(DEVICE)
 
-        data_input = data.clone()
+        data_corrupted = data.clone()
 
         if self.sigma > 0:
-            data_input += self.sigma * torch.randn_like(data_input, device=DEVICE)
+            data_corrupted += self.sigma * torch.randn_like(data_corrupted, device=DEVICE)
             if self.clip:
-                data_input = torch.clip(data_input, 0, 1)
+                data_corrupted = torch.clip(data_corrupted, 0, 1)
 
         if self.mask_p > 0:
             if len(data.shape) == 4:
                 # Broadcast noise across RGB channel
                 n, _, h, w = data.shape
                 u = torch.rand((n, 1, h, w),
-                                   dtype=data_input.dtype,
-                                   layout=data_input.layout,
-                                   device=data_input.device)
+                               dtype=data_corrupted.dtype,
+                               layout=data_corrupted.layout,
+                               device=data_corrupted.device)
                 # View sample
             else:
-                u = torch.rand_like(data_input, device=DEVICE)
+                u = torch.rand_like(data_corrupted, device=DEVICE)
 
-            data_input *= u > self.mask_p
+            data_corrupted *= u > self.mask_p
 
             # View samples for debugging
             # for i in range(3):
@@ -362,8 +366,91 @@ class DAE(AE):
             #     plt.show()
             # exit()
 
-        x_hat, z = self.torch_module(data_input)  # Forward pass
+        x_hat, z = self.torch_module(data_corrupted)  # Forward pass
 
-        # Compute loss using original data
+        # Compute loss using original uncorrupted data
         self.compute_loss(data, x_hat, z, idx)
 
+
+class CAE(AE):
+    """Contractive Autoencoders.
+
+    Add Frobenius norm of the Jacobian of the embedding with respect to the input.
+    From Contractive Auto-Encoders : Explicit Invariance during Feature Extraction
+    by Rifai, Vincent et al.
+    """
+
+    def __init__(self, *, lam=1, **kwargs):
+        """Init.
+
+        Args:
+            lam(float): Regularization factor for Frobenius norm of encoder Jacobian.
+            **kwargs: All other keyword arguments are passed to the AE parent class.
+        """
+        super().__init__(**kwargs)
+        self.lam = lam
+
+    def train_body(self, batch):
+        # Tell torch to compute gradient w.r. to input
+        batch[0].requires_grad = True
+        super().train_body(batch)
+
+    def compute_loss(self, x, x_hat, z, idx):
+        """Apply loss to update parameters following a forward pass.
+
+        Regularize loss with the Frobenius norm of the Jacobian of the embedding with respect to the input.
+
+        Args:
+            x(torch.Tensor): Input batch.
+            x_hat(torch.Tensor): Reconstructed batch (decoder output).
+            z(torch.Tensor): Batch embedding (encoder output).
+            idx(torch.Tensor): Indices of samples in batch.
+
+        """
+        # Retain input gradient
+        x.retain_grad()
+
+        # Note : Test code for future review. See actual code below.
+        # # Method found online.
+        # # See https://stackoverflow.com/questions/58249160/how-to-implement-contractive-autoencoder-in-pytorch
+        # z.backward(torch.ones_like(z), retain_graph=True)
+        # grads_1 = x.grad  # Not a jacobian...
+        # frob_1 = (grads_1 ** 2).sum()/x.shape[0]
+        # print(grads_1.shape)
+        # print(frob_1)
+        # x.grad = None
+        #
+        # # The above does not compute the actual Jacobian, but rather the gradient w.r. to the sum of
+        # # the latent space dimensions
+        # s = z.sum()
+        # s.backward(retain_graph=True)
+        # grads_2 = x.grad
+        # frob_2 = (grads_2 ** 2).sum()/x.shape[0]
+        # print(grads_2.shape)
+        # print(frob_2)
+        # print(torch.allclose(grads_1, grads_2))
+        # x.grad = None
+
+        # Naive loopy way to compute the actual encoder Jacobian by stacking gradients.
+        # Get one matrix by element in the batch. This can expensive if latent space is high dimensional!
+        # Note : This could be improved. See https://gist.github.com/sbarratt/37356c46ad1350d4c30aefbd488a4faa. The
+        # trick requires to embed multiple copies of the batch however.
+        if self.lam > 0:
+            # Stack gradients to compute jacobian
+            grads = list()
+            for i in range(z.shape[1]):
+                g = torch_grad(inputs=x, outputs=z[:, i],
+                               grad_outputs=torch.ones_like(z[:, 0]), retain_graph=True,
+                               create_graph=True)[0]
+                grads.append(g)
+                x.grad = None  # Reset input gradient
+            jaco = torch.stack(grads, dim=1)
+
+            # Reduction by mean over the batch
+            frob_squared = (jaco ** 2).sum() / x.shape[0]
+        else:
+            frob_squared = 0
+
+        rec = self.criterion(x_hat, x)
+        loss = rec + self.lam * frob_squared
+        loss.backward()
