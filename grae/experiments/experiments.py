@@ -109,7 +109,9 @@ def fit_test(exp_params, data_path, k, write_path, others=None, custom_tag=''):
     fit_time = fit_stop - fit_start
 
     # Log plots
-    m.plot(data_train, data_test, title=f'{model_name}_{dataset_name}')
+    dim = model_params.get('n_components')
+    if dim is None or dim == 2:  # Default is 2D
+        m.plot(data_train, data_test, title=f'{model_name}_{dataset_name}')
     if dataset_name in ['Faces', 'RotatedDigits', 'UMIST', 'Tracking', 'COIL100', 'Teapot']:
         m.view_img_rec(data_train, choice='random', title=f'{model_name}_{dataset_name}_train_rec')
         m.view_img_rec(data_test, choice='best', title=f'{model_name}_{dataset_name}_test_rec_best')
