@@ -303,13 +303,13 @@ class DAE(AE):
     See Stacked Denoising Autoencoders: Learning Useful Representations in
     a Deep Network with a Local Denoising Criterion by Vincent et al."""
 
-    def __init__(self, *, mask_p=0, sigma=0, clip=False, **kwargs):
+    def __init__(self, *, mask_p=0, sigma=0, clip=0, **kwargs):
         """Init.
 
         Args:
             mask_p(float): Input features will be set to 0 with probability p.
             sigma(float): Standard deviation of the isotropic gaussian noise added to the input.
-            clip(bool): clip values between 0 and 1.
+            clip(int): 0: no clip.  1 : clip values between 0 and 1. 2 : clip values between 0 and +inf.
             **kwargs: All other keyword arguments are passed to the AE parent class.
         """
         super().__init__(**kwargs)
@@ -318,7 +318,7 @@ class DAE(AE):
             raise ValueError(f'sigma should be a positive number.')
 
         if mask_p < 0 or mask_p >= 1:
-            raise ValueError(f'Sigma should be in [0, 1).')
+            raise ValueError(f'mask_p should be in [0, 1).')
 
         self.mask_p = mask_p
         self.sigma = sigma
@@ -340,8 +340,10 @@ class DAE(AE):
 
         if self.sigma > 0:
             data_corrupted += self.sigma * torch.randn_like(data_corrupted, device=DEVICE)
-            if self.clip:
+            if self.clip == 1:
                 data_corrupted = torch.clip(data_corrupted, 0, 1)
+            elif self.clip == 2:
+                data_corrupted = torch.clip(data_corrupted, 0, None)
 
         if self.mask_p > 0:
             if len(data.shape) == 4:
