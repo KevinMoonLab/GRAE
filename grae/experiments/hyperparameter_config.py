@@ -1,7 +1,7 @@
 import scipy.stats as stats
 from copy import deepcopy
 
-neighbor_param = [50, 10, 20]
+neighbor_param = [5, 10, 20]
 
 PARAM_GRID = {
     'lr': stats.loguniform(a=2e-4, b=2e-3),
@@ -14,6 +14,9 @@ PARAM_GRID = {
     'n_neighbors': neighbor_param,
     'min_dist': stats.uniform(loc=0, scale=.99),
     'lam': stats.loguniform(a=1e-2, b=1e2),
+    'beta': stats.loguniform(a=1e-4, b=1e1),
+    'mask_p': stats.uniform(loc=.1, scale=.7),
+    'sigma': stats.loguniform(a=1e-4, b=1e-1),
     'eta': stats.loguniform(a=1e-2, b=1e2),
     'epsilon': stats.uniform(loc=1, scale=70),
     'margin': stats.loguniform(a=.01, b=10),
