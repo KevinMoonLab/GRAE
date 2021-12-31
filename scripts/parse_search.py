@@ -146,7 +146,8 @@ def sub_row(x):
 
         for key, item in params.items():
             # Only replace hyperparameters if value is already present in schedule
-            if not math.isnan(x[key]):
+            value = x.get(key)
+            if value and not math.isnan(value):
                 x[key] = item
 
     return x
