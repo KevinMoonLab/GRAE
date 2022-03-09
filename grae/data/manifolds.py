@@ -11,6 +11,7 @@ import mpl_toolkits.mplot3d.axes3d as p3
 import numpy as np
 from sklearn import datasets
 import phate
+from tensorflow.keras.datasets import mnist
 
 from grae.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
 
@@ -557,3 +558,36 @@ class Spheres(BaseDataset):
         x, y = create_sphere_dataset(seed=random_state)
 
         super().__init__(x, y, split, split_ratio, random_state)
+
+
+"Semi-supervised experiments"
+
+class MnistDigits(BaseDataset):   
+    def __init__(self, n_samples = 5000, perc_labels = 0.1, split='none', subsetL = True, split_ratio=FIT_DEFAULT, random_state=SEED):
+        (train_images, Y_train), (test_images, Y_test) = mnist.load_data()
+        train_images = train_images[:n_samples]
+        inputs = train_images.reshape((n_samples, 784))/255.
+        inputs = inputs[:n_samples]
+        true_labels = Y_train[:n_samples]
+        if subsetL == True:
+            indc = ((true_labels == 4) | (true_labels == 9) | (true_labels == 7))
+        else:
+            indc = np.arange(n_samples)
+        inputs = inputs[indc,:]
+        true_labels = true_labels[indc]
+        
+        for p, i in enumerate(np.unique(true_labels)): 
+            indx = np.where(true_labels == i)[0]
+            true_labels[indx] = p
+            
+        self.true_labels = true_labels    
+    # select some labels to remove for the experiments
+        targets = true_labels.copy().astype(float)
+        for p, i in enumerate(np.unique(true_labels)): 
+            indx = np.where(true_labels == i)[0]
+            # from the observarions with this label take a % off
+            NlabelsRemove = int(np.floor(len(indx)*(1-perc_labels)))
+            indxR = np.random.choice(indx, NlabelsRemove, replace = False)
+            targets[indxR] = 'nan'
+        self.test_ind = np.where(torch.isnan(torch.tensor(targets)))[0]
+        super().__init__(inputs, targets, split, split_ratio, random_state)
