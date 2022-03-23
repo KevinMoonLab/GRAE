@@ -16,4 +16,5 @@ setup(name='grae',
             "torch",
             "torchvision",
             "scikit-image",
+            "requests",
       ])
