@@ -22,7 +22,6 @@ pip install --upgrade https://github.com/KevinMoonLab/GRAE.git
 
 The code largely follows the scikit-learn API to implement different autoencoders and dimensionality reduction tools. You can change basic autoencoder hyperparameters and manifold learning 
 hyperparameters through the model interface. For example, to reproduce some Rotated Digits results : 
-
 ```python
 from grae.models import GRAE
 from grae.data import RotatedDigits
