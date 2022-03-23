@@ -4,4 +4,14 @@ setup(name='grae',
       version='0.1',
       python_requires='>=3.8',
       description='main package',
-      packages=find_packages())
+      packages=find_packages(),
+      install_requires=[
+            "numpy",
+            "matplotlib",
+            "pandas",
+            "phate",
+            "scikit-learn",
+            "umap-learn",
+            "torch",
+            "torchvision",
+      ])
