@@ -12,7 +12,7 @@ A more detailed explanation of the method can be found in `GRAE_poster.pdf`.
 ## Install
 You can install this repo directly with pip, preferably in a virtual environment : 
 ```
-pip install --upgrade https://github.com/KevinMoonLab/GRAE.git
+pip install --upgrade git+https://github.com/KevinMoonLab/GRAE.git
 ``` 
 <p>
 <img src="imgs/tracking.gif" alt="Character Tracking">
