@@ -1,18 +1,27 @@
 Geometry Regularized Autoencoders (GRAE)
 ==============================
-![Teapot Gif](imgs/tp.gif)
+
+<p align="center">
+<img src="imgs/tp.gif" alt="Teapot">
+</p>
 
 Source code for the Geometry Regularized Autoencoder paper.  Based on the paper [here](https://arxiv.org/abs/2007.07142).  The traditional autoencoder objective is augmented to regularize the latent space towards a manifold learning embedding, e.g., PHATE. 
 A more detailed explanation of the method can be found in `GRAE_poster.pdf`. 
 
+
 ## Install
-Make sure to clone the repo and pip install it, preferably in a virtual environment : 
+You can install this repo directly with pip, preferably in a virtual environment : 
 ```
-TODO
+pip install --upgrade https://github.com/KevinMoonLab/GRAE.git
 ``` 
 ## Usage
+
+<p>
+<img src="imgs/tracking.gif" alt="Character Tracking">
+</p>
 The code largely follows the scikit-learn API to implement different autoencoders and dimensionality reduction tools. You can change basic autoencoder hyperparameters and manifold learning 
 hyperparameters through the model interface. For example, to reproduce some Rotated Digits results : 
+
 ```python
 from grae.models import GRAE
 from grae.data import RotatedDigits
