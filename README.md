@@ -14,11 +14,12 @@ You can install this repo directly with pip, preferably in a virtual environment
 ```
 pip install --upgrade https://github.com/KevinMoonLab/GRAE.git
 ``` 
-## Usage
-
 <p>
 <img src="imgs/tracking.gif" alt="Character Tracking">
 </p>
+
+## Usage
+
 The code largely follows the scikit-learn API to implement different autoencoders and dimensionality reduction tools. You can change basic autoencoder hyperparameters and manifold learning 
 hyperparameters through the model interface. For example, to reproduce some Rotated Digits results : 
 
