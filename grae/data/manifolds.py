@@ -11,7 +11,6 @@ import mpl_toolkits.mplot3d.axes3d as p3
 import numpy as np
 from sklearn import datasets
 import phate
-from tensorflow.keras.datasets import mnist
 
 from grae.data.base_dataset import BaseDataset, SEED, FIT_DEFAULT, DEFAULT_PATH
 
@@ -564,6 +563,7 @@ class Spheres(BaseDataset):
 
 class MnistDigits(BaseDataset):   
     def __init__(self, n_samples = 5000, perc_labels = 0.1, split='none', subsetL = True, split_ratio=FIT_DEFAULT, random_state=SEED):
+        from tensorflow.keras.datasets import mnist
         (train_images, Y_train), (test_images, Y_test) = mnist.load_data()
         train_images = train_images[:n_samples]
         inputs = train_images.reshape((n_samples, 784))/255.
