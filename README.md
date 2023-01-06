@@ -1,12 +1,25 @@
 Geometry Regularized Autoencoders (GRAE)
 ==============================
+[![DOI:10.1109/TPAMI.2022.3222104](https://zenodo.org/badge/DOI/10.1109/TPAMI.2022.3222104.svg)](https://doi.org/10.1109/TPAMI.2022.3222104)
 
 <p align="center">
 <img src="imgs/tp_small.gif" alt="Teapot">
 </p>
 
-Source code for the Geometry Regularized Autoencoder paper.  Based on the paper [here](https://arxiv.org/abs/2007.07142).  The traditional autoencoder objective is augmented to regularize the latent space towards a manifold learning embedding, e.g., PHATE. 
+Source code for the Geometry Regularized Autoencoder paper.  Based on the paper [here](https://doi.org/10.1109/TPAMI.2022.3222104).  The traditional autoencoder objective is augmented to regularize the latent space towards a manifold learning embedding, e.g., PHATE. 
 A more detailed explanation of the method can be found in `GRAE_poster.pdf`. 
+
+## Reference
+If you find this work useful, please cite:
+```
+@article{duque2022geometry,
+  title={Geometry Regularized Autoencoders},
+  author={Duque, Andres F and Morin, Sacha and Wolf, Guy and Moon, Kevin R},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  year={2022},
+  publisher={IEEE}
+}
+```
 
 
 ## Install
@@ -67,8 +80,4 @@ Most of our benchmarks are implemented with similar estimators. Implemented mode
 And many more!
 ## Adding a new model or a new dataset
 New models should subclass grae.models.BaseModel or grae.models.AE if autoencoder-based. New datasets should follow the grae.data.BaseDataset interface.
-## Reference
-If you use this code, please cite the following:
-
-A. Duque, S. Morin, G. Wolf, K.R. Moon, "Extendable and invertible manifold learning with geometry regularized autoencoders," *IEEE International Conference on Big Data*, pp. 5027-5036, Dec. 2020.
 
