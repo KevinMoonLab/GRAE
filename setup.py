@@ -15,6 +15,7 @@ setup(name='grae',
             "umap-learn",
             "torch",
             "torchvision",
+            "comet-ml",
             "scikit-image",
             "requests",
       ])
